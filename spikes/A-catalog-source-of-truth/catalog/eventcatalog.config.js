@@ -12,9 +12,8 @@ export default {
   output: 'static',
   // By default set to false, add true to get urls ending in /
   trailingSlash: false,
-  // Change to make the base url of the site different, by default https://{website}.com/docs,
-  // changing to /company would be https://{website}.com/company/docs,
-  base: '/',
+  // GitHub Pages serves the site under /<repo>; the pages workflow sets EVENTCATALOG_BASE. Local dev stays at /.
+  base: process.env.EVENTCATALOG_BASE ?? '/',
   // Resource search is the default lightweight search. Change this to { type: 'indexed' }
   // to enable full-content search. Indexed search requires running a build to generate the index.
   search: {
