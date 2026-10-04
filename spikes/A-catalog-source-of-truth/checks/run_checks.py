@@ -33,7 +33,12 @@ def _ids(items):
 
 def load(cat: Path) -> dict:
     """A thin, independent view of the catalog (the generator has its own loader; the checks must not trust it)."""
-    m = {"domains": {}, "services": {}, "events": {}, "messages": {}, "schemas": {}, "service_domain": {}}
+    m = {"domains": {}, "services": {}, "events": {}, "messages": {}, "schemas": {}, "service_domain": {},
+         "channel_routes": {}, "channel_fan_out": {}}
+    for md in sorted(cat.glob("channels/*/index.md*")):
+        fm = frontmatter.load(md)
+        m["channel_routes"][fm["id"]] = [i for i, _ in _ids(fm.get("routes"))]
+        m["channel_fan_out"][fm["id"]] = list(_x(fm, "fan-out-to", []) or [])
     for md in sorted(cat.glob("domains/*/index.md*")):
         fm = frontmatter.load(md)
         m["domains"][fm["id"]] = {"path": md, "services": [i for i, _ in _ids(fm.get("services"))], "fm": fm}
@@ -176,16 +181,40 @@ def check_source_namespace(cat: Path, m: dict) -> list[str]:
     return fails
 
 
-def check_visibility_matches_channels(cat: Path, m: dict) -> list[str]:
-    """x-visibility: public ⇔ the sender lists central-bus under sends[].to. Internal events never name central-bus
-    (README.md: public / internal)."""
+def check_channel_topology(cat: Path, m: dict) -> list[str]:
+    """The bus topology is domain bus → central-bus → domain bus (README.md: fan-out-all). A service publishes every
+    event to its own domain's bus and nothing else (never to central-bus directly); it receives bus events only from
+    its own domain's bus; every domain bus `routes` to central-bus and central-bus `routes` to every domain bus."""
     fails = []
-    for e in m["events"].values():
-        on_central = CENTRAL in e["channels"]
-        if e["visibility"] == "public" and not on_central:
-            fails.append(f"{e['id']}: public but {CENTRAL} is not in the sender's sends[].to (README.md)")
-        if e["visibility"] != "public" and on_central:
-            fails.append(f"{e['id']}: internal but routed to {CENTRAL} (README.md)")
+    bus_of = {d: _x(dom["fm"], "bus") for d, dom in m["domains"].items()}
+    for sname, s in m["services"].items():
+        own = bus_of.get(s["domain"])
+        if own is None:
+            fails.append(f"{sname}: domain {s['domain']} declares no x-bus (README.md)")
+            continue
+        for ev_id, to in s["sends"].items():
+            if ev_id in m["messages"]:
+                continue
+            if set(to) != {own}:
+                fails.append(f"{sname} sends {ev_id} to {to or '[]'}; events are published only to the domain's own bus {own} (README.md)")
+        for ev_id, frm in s["receives"].items():
+            if ev_id in m["messages"]:
+                continue
+            if set(frm) != {own}:
+                fails.append(f"{sname} receives {ev_id} from {frm or '[]'}; consumers subscribe only on their own bus {own} (README.md)")
+    routes = m["channel_routes"]
+    if CENTRAL not in routes:
+        return fails + [f"channel {CENTRAL} is missing (README.md)"]
+    # The fan-out hop is declared as x-fan-out-to on central-bus, not as routes: EventCatalog 4.12.3 overflows when
+    # central routes back to two or more buses that route into it. If routes are present they must be complete.
+    fan_out = set(m["channel_fan_out"].get(CENTRAL, [])) | set(routes[CENTRAL])
+    for d, bus in bus_of.items():
+        if bus is None:
+            continue
+        if CENTRAL not in routes.get(bus, []):
+            fails.append(f"channel {bus} ({d}) must route to {CENTRAL} (public-forward rule) (README.md)")
+        if bus not in fan_out:
+            fails.append(f"channel {CENTRAL} must fan out to {bus} ({d}): list it under x-fan-out-to or routes (README.md)")
     return fails
 
 
@@ -316,7 +345,7 @@ def check_schema_diff(cat: Path, m: dict, base: Path | None = None) -> list[str]
 
 
 CHECKS = [check_x_pii, check_direct_on_public_requires_encryption, check_receives_target_public_or_same_domain,
-          check_source_namespace, check_visibility_matches_channels, check_refs_into_schemas,
+          check_source_namespace, check_channel_topology, check_refs_into_schemas,
           check_openapi_operations_have_pages, check_sync_hop_depth, check_examples_match_schema, check_schema_diff]
 
 

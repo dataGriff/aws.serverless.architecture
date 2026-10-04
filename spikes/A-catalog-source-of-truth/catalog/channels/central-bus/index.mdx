@@ -18,8 +18,14 @@ parameters:
     description: Platform account id
 x-owner-account: platform
 x-public-only: true
+x-fan-out-to:
+  - orders-bus
+  - payments-bus
+x-route-rule: "{domain}-fan-out (generated; source anything-but the domain's own prefix)"
 ---
 
 <ChannelInformation />
 
-Only public events are forwarded here by each domain's generated public-forward rule. One fan-out rule per domain forwards everything except that domain's own events to its bus.
+No service publishes here directly. Each domain bus routes its public events here through its generated public-forward rule (see `routes` on `orders-bus` and `payments-bus`), and one generated fan-out rule per domain routes everything except that domain's own events back out to that domain's bus (`x-fan-out-to`). The fan-out hop is deliberately not declared as `routes` here: with two or more domain buses routing in and `central-bus` routing back out, EventCatalog 4.12.3's build overflows the stack while rendering the event pages. The generated `rules/{domain}-fan-out.json` is the authoritative description of that hop.
+
+<CustomProperties title="Fan-out" />

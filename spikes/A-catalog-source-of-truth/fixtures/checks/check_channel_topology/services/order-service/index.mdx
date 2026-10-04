@@ -2,7 +2,7 @@
 id: order-service
 name: Order service
 version: 1.0.0
-summary: FIXTURE — routes an internal event to central-bus.
+summary: FIXTURE — publishes straight to central-bus and consumes from another domain's bus.
 owners:
   - orders-team
 sends:
@@ -15,12 +15,11 @@ sends:
     version: 1.0.0
     to:
       - id: orders-bus
-      - id: central-bus
 receives:
   - id: PaymentCaptured
     version: 1.0.0
     from:
-      - id: orders-bus
+      - id: payments-bus
   - id: PlaceOrder
     version: 1.0.0
     from:

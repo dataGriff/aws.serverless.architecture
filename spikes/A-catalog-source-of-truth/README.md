@@ -24,6 +24,6 @@ task catalog:dev         # look at the site on http://localhost:3000
 ## Conventions the spike settled on
 
 - Platform fields in frontmatter are `x-` prefixed (`x-visibility`, `x-audience`, `x-source`); EventCatalog rejects unknown top-level keys at build time.
-- Channels are declared on the sending service (`sends[].to`, `receives[].from`); a public event lists `central-bus` under `to`. The build rewrites any other form in place, so `task catalog:build:clean` fails on a dirty tree.
+- Channels are declared on the services (`sends[].to`, `receives[].from`) and the bus chain on the channels: a service publishes only to its own domain bus, each domain bus `routes` to `central-bus`, `central-bus` lists its fan-out targets under `x-fan-out-to` (not `routes`: EventCatalog 4.12.3 overflows on the hub cycle), and a consumer receives from its own bus. `check_channel_topology` enforces it. The build rewrites message-level `channels:` in place, so `task catalog:build:clean` fails on a dirty tree.
 - `x-pii` lives on every property in JSON Schema, including shared `schemas/`. Direct fields of public events are the ciphertext envelope on the wire; the generator rewrites the validation schema accordingly.
 - Event payload schemas describe the business fields only; the generator flattens `schemas/Envelope.json` into them for validation.

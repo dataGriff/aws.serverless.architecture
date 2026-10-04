@@ -16,7 +16,12 @@ parameters:
     description: Home region
   orders-account:
     description: Orders account id
+routes:
+  - id: central-bus
 x-owner-account: orders
+x-route-rule: orders-public-forward (generated; public events only)
 ---
 
 <ChannelInformation />
+
+Every `orders.*` event is published here and only here. The generated public-forward rule routes the public ones to `central-bus`; internal events never leave this bus. Consumer rules for this domain also live here, matching what the fan-out rule delivers from `central-bus`.

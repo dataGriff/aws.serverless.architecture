@@ -16,7 +16,12 @@ parameters:
     description: Home region
   payments-account:
     description: Payments account id
+routes:
+  - id: central-bus
 x-owner-account: payments
+x-route-rule: payments-public-forward (generated; public events only)
 ---
 
 <ChannelInformation />
+
+Every `payments.*` event is published here and only here. The generated public-forward rule routes the public ones to `central-bus`; consumer rules for this domain match what the fan-out rule delivers from `central-bus`.

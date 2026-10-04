@@ -23,7 +23,7 @@ x-pii:
 
 ## Routing
 
-`source` is `orders.order-service`, `detail-type` is `OrderPlaced.v1`. Public: forwarded to `central-bus`, fanned out to every other domain bus, archived to orders bronze and compacted to silver. Channels are declared on the sending service (`sends[].to`), which is the only form EventCatalog 4.12 keeps.
+`source` is `orders.order-service`, `detail-type` is `OrderPlaced.v1`. Published to `orders-bus` only. Because it is public, the generated public-forward rule routes it to `central-bus`, the fan-out rule routes it on to every other domain bus (payments receives it from `payments-bus`), and Firehose archives it to orders bronze for compaction to silver. The publisher's `sends[].to` names only its own bus; `orders-bus` declares the hop to `central-bus` as a route, and `central-bus` lists the fan-out targets (see its page for why that hop is not a route).
 
 <CustomProperties title="Platform properties" />
 

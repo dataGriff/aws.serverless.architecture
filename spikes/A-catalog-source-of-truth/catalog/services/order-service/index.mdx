@@ -10,7 +10,6 @@ sends:
     version: 1.0.0
     to:
       - id: orders-bus
-      - id: central-bus
   - id: order.aggregate.updated
     version: 1.0.0
     to:
@@ -41,7 +40,7 @@ x-bus: orders-bus
 
 ## Behaviour
 
-Commands arrive over the orders API (`POST /v1/orders`) and queries over `GET /v1/orders/{id}`; both are modelled as messages this service receives. Facts leave as events through the transactional outbox and the relay module onto `orders-bus`; public ones are forwarded to `central-bus` by the generated rule, which is why they list both channels under `to`. Everything this service consumes arrives on `orders-bus` (fan-out), never from another domain's bus.
+Commands arrive over the orders API (`POST /v1/orders`) and queries over `GET /v1/orders/{id}`; both are modelled as messages this service receives. Facts leave as events through the transactional outbox and the relay module onto `orders-bus`, and nowhere else: the generated public-forward rule on `orders-bus` routes public events to `central-bus`, and the fan-out rule on `central-bus` routes them on to every other domain bus (see the channels' `routes`). Everything this service consumes arrives on `orders-bus`, never from another domain's bus.
 
 <CustomProperties title="Platform properties" />
 
