@@ -58,6 +58,10 @@ tasks:
     desc: "LocalStack feature probes (archive/replay, pattern operators) — prints a table for findings.md"
     cmds:
       - uv run --with boto3 python3 tests/probe_localstack.py
+  depths:
+    desc: Depth of every queue (probes, consumers, DLQs)
+    cmds:
+      - uv run --with boto3 python3 tests/queue_depths.py
   reset:
     desc: down → up → apply → test
     cmds:

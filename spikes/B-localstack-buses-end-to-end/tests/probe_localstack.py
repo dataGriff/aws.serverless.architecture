@@ -12,7 +12,10 @@ import json
 import time
 import urllib.request
 
-from harness import ENDPOINT, drain, envelope, events, put, queues
+import boto3
+from botocore.config import Config
+
+from harness import ENDPOINT, _cfg, drain, envelope, events, put, queues
 
 EVENT = {"id": "1", "account": "000000000000", "time": "2026-10-04T15:00:00Z", "region": "eu-west-2",
          "resources": [], "source": "payments.payment-service", "detail-type": "PaymentCaptured.v1",
@@ -67,7 +70,10 @@ def probe_archive_replay() -> list[tuple[str, str]]:
     drain(queues()["central_probe"], seconds=3)
     try:
         now = time.time()
-        r = events.start_replay(ReplayName=f"{name}-replay", EventSourceArn=f"arn:aws:events:eu-west-2:000000000000:archive/{name}",
+        # no retries: LocalStack 4.14 returns 500 on the first call and registers the replay anyway,
+        # so boto's retry would report a misleading ResourceAlreadyExistsException
+        no_retry = boto3.client("events", config=Config(retries={"max_attempts": 0}), **_cfg)
+        r = no_retry.start_replay(ReplayName=f"{name}-replay", EventSourceArn=f"arn:aws:events:eu-west-2:000000000000:archive/{name}",
                                 EventStartTime=now - 600, EventEndTime=now + 60,
                                 Destination={"Arn": bus_arn})
         rows.append(("StartReplay", f"ok ({r.get('State')})"))
@@ -87,8 +93,21 @@ def probe_archive_replay() -> list[tuple[str, str]]:
     return rows
 
 
+def probe_ordering(n: int = 20) -> list[tuple[str, str]]:
+    """Put n events one after another on orders-bus; read the order they reach payments' probe (two hops)."""
+    q = queues()["payments_probe"]
+    drain(q, seconds=2)
+    tag = f"order-{int(time.time())}"
+    for i in range(n):
+        put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(seq=i, tag=tag))
+    got = [e["detail"]["seq"] for e in drain(q, seconds=15) if e.get("detail", {}).get("tag") == tag]
+    in_order = got == sorted(got)
+    return [("ordering: %d sequential puts, 2 hops" % n,
+             f"{len(got)}/{n} delivered, {'in order' if in_order else 'OUT OF ORDER: ' + str(got)}")]
+
+
 if __name__ == "__main__":
     print(f"LocalStack: {version()}\n")
     print("| Probe | Result |\n| --- | --- |")
-    for n, r in probe_operators() + probe_archive_replay():
+    for n, r in probe_operators() + probe_archive_replay() + probe_ordering():
         print(f"| {n} | {r} |")
