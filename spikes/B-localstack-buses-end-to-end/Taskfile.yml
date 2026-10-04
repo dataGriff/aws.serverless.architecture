@@ -76,6 +76,32 @@ tasks:
       - task: apply
         vars: { FIREHOSE: "true" }
       - uv run --with boto3 --with duckdb python3 tests/probe_firehose.py
+  # ---- real AWS sandbox (profile via PROFILE=, default admin). LocalStack env vars are unset for these. ----
+  sandbox-apply:
+    desc: "Apply buses, rules and probes to a real AWS account: task sandbox-apply [PROFILE=admin]"
+    dir: terraform/envs/sandbox
+    cmds:
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform init -input=false
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform apply -input=false -auto-approve
+      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
+  sandbox-test:
+    desc: "Run the suite against the sandbox (archiver/DuckDB tests skip): task sandbox-test [PROFILE=admin] [-- -k ...]"
+    cmds:
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 --with pytest pytest -v -rxXs tests -m "not transformer" {{.CLI_ARGS}}
+  sandbox-depths:
+    desc: Queue depths in the sandbox
+    cmds:
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/queue_depths.py
+  sandbox-dlq-peek:
+    desc: Every sandbox DLQ record with its ERROR_CODE / ERROR_MESSAGE
+    cmds:
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/dlq_peek.py
+  sandbox-destroy:
+    desc: Tear the sandbox resources down
+    dir: terraform/envs/sandbox
+    cmds:
+      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform destroy -input=false -auto-approve
+      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
   depths:
     desc: Depth of every queue (probes, consumers, DLQs)
     cmds:

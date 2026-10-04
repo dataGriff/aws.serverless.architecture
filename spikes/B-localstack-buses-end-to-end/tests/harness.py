@@ -14,18 +14,23 @@ from pathlib import Path
 
 import boto3
 
-ENDPOINT = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:4566")
-_cfg = dict(endpoint_url=ENDPOINT, region_name="eu-west-2",
-            aws_access_key_id="test", aws_secret_access_key="test")
+# Target selection: SPIKE_TARGET=local (default) talks to LocalStack with test creds;
+# SPIKE_TARGET=sandbox uses the default boto3 credential chain (AWS_PROFILE) against real AWS.
+TARGET = os.environ.get("SPIKE_TARGET", "local")
+IS_LOCALSTACK = TARGET == "local"
+ENDPOINT = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:4566") if IS_LOCALSTACK else None
+REGION = os.environ.get("AWS_DEFAULT_REGION", "eu-west-2")
+_cfg = (dict(endpoint_url=ENDPOINT, region_name=REGION, aws_access_key_id="test", aws_secret_access_key="test")
+        if IS_LOCALSTACK else dict(region_name=REGION))
 events = boto3.client("events", **_cfg)
 sqs = boto3.client("sqs", **_cfg)
 s3 = boto3.client("s3", **_cfg)
 
-TF_DIR = Path(__file__).resolve().parents[1] / "terraform" / "envs" / "local"
+TF_DIR = Path(__file__).resolve().parents[1] / "terraform" / "envs" / TARGET
 
 
 def _tf_output(name: str) -> dict[str, str]:
-    cache = Path(__file__).resolve().parents[1] / f".{name}.json"
+    cache = Path(__file__).resolve().parents[1] / (f".{name}.json" if IS_LOCALSTACK else f".{name}.{TARGET}.json")
     if cache.exists():
         return json.loads(cache.read_text())
     out = subprocess.check_output(["terraform", "output", "-json", name], cwd=TF_DIR)
@@ -144,11 +149,12 @@ def archived_ids() -> set[str]:
 def duck():
     """DuckDB connection pointed at LocalStack's S3 (httpfs, path-style, test creds)."""
     import duckdb
+    assert IS_LOCALSTACK, "duck() is wired for LocalStack's S3 only; the sandbox env has no archiver"
     host = ENDPOINT.split("://", 1)[1]
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
     con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; "
-                "SET s3_region='eu-west-2'; SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
+                f"SET s3_region='{REGION}'; SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
     con.execute(f"CREATE VIEW archive AS SELECT * FROM read_json_auto('s3://{archive_bucket()}/raw/**/*.json', "
                 "hive_partitioning=true, union_by_name=true)")
     return con

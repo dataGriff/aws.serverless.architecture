@@ -9,15 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from harness import (archived, archived_ids, count_deliveries, dlq_count, drain, duck, envelope, events, expect,
-                     expect_none, put, purge_all, queues)
+from harness import (IS_LOCALSTACK, archived, archived_ids, count_deliveries, dlq_count, drain, duck, envelope, events,
+                     expect, expect_none, put, purge_all, queues)
+
+localstack_only = pytest.mark.skipif(not IS_LOCALSTACK, reason="LocalStack-only (archiver / DuckDB are not in the sandbox env)")
 
 Q = queues()
 PATTERNS = Path(__file__).resolve().parents[1] / "patterns"
 
-# AWS docs: "EventBridge can't route events received from a sender event bus to a third event bus"
-# (eb-bus-to-bus, eb-cross-account). LocalStack 4.14 delivers the second hop anyway, so every
-# two-hop assertion below is a LocalStack-only result until a sandbox run says otherwise. See findings.md.
+# CONFIRMED on real AWS 2026-10-04 (task sandbox-test): every two-hop test below fails there, and the fan-out
+# DLQs hold the event with ERROR_CODE=THIRD_ACCOUNT_HOP_DETECTED: "an event can be sent to an event bus target
+# only once. This event was previously delivered to an event bus target." LocalStack (Community and licensed)
+# delivers the second hop anyway, so these tests pass locally for the wrong reason. See findings.md.
 TWO_HOPS = pytest.mark.sandbox
 
 LOCALSTACK_GAP = ("LocalStack never writes to a target DLQ: Community 4.14 logs TargetDeliveryFailure and does not enforce the SQS policy; "
@@ -48,18 +51,20 @@ def test_public_event_reaches_payments_consumer_rule():
 
 def test_public_event_reaches_central_in_one_hop():
     """The hop AWS does guarantee: domain bus -> central. Not marked sandbox."""
+    before = dlq_count("orders-public-forward")  # delta, not absolute: AWS PurgeQueue is once per 60 s and async
     d = put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=1.5))
     e = expect(Q["central_probe"], d["eventId"])
     assert e["source"] == "orders.order-service" and e["detail-type"] == "OrderPlaced.v1"
-    assert dlq_count("orders-public-forward") == 0
+    assert dlq_count("orders-public-forward") == before
 
 
 def test_fan_out_from_central_reaches_domain_in_one_hop():
     """The other hop AWS guarantees, taken on its own: an event put straight on central reaches payments-bus."""
+    before = dlq_count("payments-fan-out")
     d = put("central-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=1.6))
     expect(Q["payments_consumer_order_placed"], d["eventId"])
     expect_none(Q["orders_probe"], d["eventId"])
-    assert dlq_count("payments-fan-out") == 0
+    assert dlq_count("payments-fan-out") == before
 
 
 def test_internal_event_never_reaches_central_or_payments():
@@ -102,7 +107,7 @@ def test_envelope_preserved_across_two_hops():
 
 
 @pytest.mark.sandbox
-@pytest.mark.xfail(reason=LOCALSTACK_GAP, strict=True)
+@pytest.mark.xfail(IS_LOCALSTACK, reason=LOCALSTACK_GAP, strict=True)
 def test_broken_target_lands_in_dlq():
     """The DLQ message body is the undeliverable event itself (plus ERROR_CODE / ERROR_MESSAGE attributes)."""
     d = put("central-bus", "platform.spike", "BrokenTargetProbe.v1", envelope())
@@ -141,6 +146,7 @@ def test_anything_but_prefix_supported_or_fallback():
 
 # ---- stretch: archiver Lambda on central -> S3, read back with DuckDB ------------------------------
 
+@localstack_only
 def test_archiver_writes_every_central_event_to_s3():
     d = put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=6.0))
     obj = archived(d["eventId"])
@@ -149,6 +155,7 @@ def test_archiver_writes_every_central_event_to_s3():
     assert dlq_count("central-archive") == 0
 
 
+@localstack_only
 def test_internal_event_is_never_archived():
     d = put("orders-bus", "orders.order-service", "order.aggregate.updated", envelope(row={"internal": True}))
     expect(Q["orders_probe"], d["eventId"])
@@ -156,6 +163,7 @@ def test_internal_event_is_never_archived():
     assert d["eventId"] not in archived_ids()
 
 
+@localstack_only
 def test_duckdb_reads_archive_with_hive_partitions():
     d = put("payments-bus", "payments.payment-service", "PaymentCaptured.v1", envelope(amount=7.0))
     archived(d["eventId"])

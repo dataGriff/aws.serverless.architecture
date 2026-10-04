@@ -18,6 +18,9 @@ task depths           # every queue's depth, DLQs included
 task reset            # down → up → apply → test
 ```
 
+Real AWS (after `aws sso login --profile admin`): `task sandbox-apply && task sandbox-test`, `task sandbox-dlq-peek`, `task sandbox-destroy`.
+The two-hop tests fail there with `THIRD_ACCOUNT_HOP_DETECTED` — that is the point; see findings.
+
 Patterns are hand-written JSON under `patterns/` — marked `SPIKE: replaced in spike C`.
 `task apply FAN_OUT=enumerated && task test` runs the enumerated fan-out form; it was not needed (see findings).
 

@@ -5,9 +5,39 @@ Run on 2026-10-04 against LocalStack Community **4.14.0** (`localstack/localstac
 ## Result
 
 - [x] **go-with-changes** — the EventBridge mechanics behave as assumed *on LocalStack*, but two of the design's load-bearing assumptions are contradicted by the AWS documentation, and LocalStack does not model either gap, so the local suite is green for the wrong reasons on those points:
-  1. **The two-hop path `domain-bus → central-bus → domain-bus` is not supported by EventBridge (Classic buses).** AWS: "EventBridge can't route events received from a sender event bus to a third event bus" ([eb-bus-to-bus](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-bus-to-bus.html)) and "If a receiver account sets up a rule that sends events received from a sender account on to a third account, these events are not sent to the third account" ([eb-cross-account](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cross-account.html)). That is exactly ADR-001's fan-out-all. LocalStack 4.14 delivers the second hop (`test_public_event_from_orders_reaches_payments_probe` passes), which is a **false positive**.
+  1. **The two-hop path `domain-bus → central-bus → domain-bus` is not supported by EventBridge (Classic buses) — confirmed in a real account** (section "Confirmed on real AWS" below): the second hop is refused with `THIRD_ACCOUNT_HOP_DETECTED` and lands in the fan-out rule's DLQ. AWS docs: "EventBridge can't route events received from a sender event bus to a third event bus" ([eb-bus-to-bus](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-bus-to-bus.html)), ([eb-cross-account](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cross-account.html)). That is exactly ADR-001's fan-out-all. LocalStack (both editions) delivers the second hop, so the local suite is a **false positive** on this point.
   2. **Input transformers are not available on cross-account bus targets** ("`Input`, `InputPath`, and `InputTransformer` are not available with `PutTarget` if the target is an event bus of a different AWS account", [PutTargets API](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutTargets.html)). ADR-006's only revisit path ("input transformer on the forward rule") therefore cannot be taken in the multi-account end state.
 - Everything else the spike was asked to prove — bus-to-bus targets with roles, bus resource policies written cross-account style, `anything-but`+`prefix`, own-event exclusion, consumer rules on the domain bus, envelope preservation, at-least-once, pattern sizes — works on LocalStack and matches the docs. DLQ delivery, resource-policy enforcement and archive replay are **sandbox-only** (LocalStack Community does not implement them).
+
+## Confirmed on real AWS (sandbox account, eu-west-2, 2026-10-04)
+
+`task sandbox-apply && task sandbox-test` applies the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and runs the suite with real credentials. Result: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only), and the failures are exactly the two-hop tests.
+
+| Test | LocalStack | Real AWS | What AWS said |
+| --- | --- | --- | --- |
+| `test_public_event_reaches_central_in_one_hop` (domain → central) | pass | **pass** | — |
+| `test_fan_out_from_central_reaches_domain_in_one_hop` (central → domain, event put straight on central) | pass | **pass** (see note on the first run) | — |
+| `test_internal_event_never_reaches_central_or_payments` | pass | **pass** | — |
+| `test_fan_out_does_not_echo_own_event` | pass | **pass** | — |
+| `test_broken_target_lands_in_dlq` (SQS policy denies EventBridge) | xfail | **pass** — the DLQ record arrives within 20 s with `ERROR_CODE=NO_RESOURCE`, `ERROR_MESSAGE="The specified queue does not exist or you do not have access to it … AWS.SimpleQueueService.NonExistentQueue"` | DLQ delivery works on AWS and a policy denial is reported as `NO_RESOURCE`, not an access error — alarm wording should say so. LocalStack cannot show any of it |
+| `test_pattern_sizes_under_4kb`, `test_anything_but_prefix_supported_or_fallback` | pass | **pass** | `anything-but` + `prefix` confirmed by `TestEventPattern` on AWS |
+| `test_public_event_from_orders_reaches_payments_probe` | pass | **FAIL** | fan-out DLQ: `THIRD_ACCOUNT_HOP_DETECTED` |
+| `test_public_event_reaches_payments_consumer_rule` | pass | **FAIL** | same |
+| `test_three_bus_loop_terminates` | pass | **FAIL** (event never reaches orders' consumer) | same |
+| `test_envelope_preserved_across_two_hops` | pass | **FAIL** | same |
+| `test_duplicate_put_is_delivered_twice` | pass | **FAIL** (0 of 2 arrive) | same |
+
+The DLQ record on both fan-out rules (`task sandbox-dlq-peek`):
+
+```
+ERROR_CODE    THIRD_ACCOUNT_HOP_DETECTED
+ERROR_MESSAGE Event ingestion rejected for event 016356af-… because an event can be sent to an event bus target only once.
+              This event was previously delivered to an event bus target.
+```
+
+So the answer to "can an event go domain → central → another domain through EventBridge rules alone" is **no**, demonstrated, not just cited. Each hop works on its own; the chain is refused at the second bus-to-bus target and the event lands in that rule's DLQ (which also means every fan-out DLQ alarm would fire on every public event under the design as written). Both LocalStack editions deliver the chain, so the local suite is a false positive on this point and the `sandbox` marker stays.
+
+Note on the one-hop fan-out test: on the first AWS run it failed only on its DLQ-depth assertion because AWS `PurgeQueue` is rate-limited (once per 60 s) and asynchronous, so residue from earlier tests was still counted; the delivery itself succeeded. The assertion is now a before/after delta.
 
 ## Reproduce
 
@@ -23,6 +53,10 @@ task -d spikes/B-localstack-buses-end-to-end depths  # every queue, including DL
 # licensed image (needs LOCALSTACK_AUTH_TOKEN exported in your shell):
 task -d spikes/B-localstack-buses-end-to-end down && task -d spikes/B-localstack-buses-end-to-end up LICENSED=true && task -d spikes/B-localstack-buses-end-to-end apply && task -d spikes/B-localstack-buses-end-to-end test
 task -d spikes/B-localstack-buses-end-to-end up LICENSED=true ENFORCE_IAM=0   # needed for CreateArchive
+# real AWS (aws sso login --profile admin first; PROFILE= to override):
+task -d spikes/B-localstack-buses-end-to-end sandbox-apply && task -d spikes/B-localstack-buses-end-to-end sandbox-test
+task -d spikes/B-localstack-buses-end-to-end sandbox-dlq-peek   # THIRD_ACCOUNT_HOP_DETECTED on the fan-out DLQs
+task -d spikes/B-localstack-buses-end-to-end sandbox-destroy
 ```
 
 `-m sandbox` selects the tests whose LocalStack result must not be trusted; run those in a real account before relying on them (`uv run --with boto3 --with pytest pytest -m sandbox` with real credentials and no `AWS_ENDPOINT_URL`).
@@ -139,7 +173,7 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 
 **Recommendation: proceed to day one with these changes, not as written.**
 
-1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven) and keep the fan-out *pattern* on central (proven), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). Run `pytest -m sandbox` once against the real topology before day one to see the drop with your own eyes; it is an hour.
+1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven on AWS) and keep the fan-out *pattern* on central (proven on AWS), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). The drop is now demonstrated (`task sandbox-test`); the sandbox env stays in the repo as the place to prove the re-publisher.
 2. **ADR-006 — drop "input transformer on the forward rule" from `revisit_when`.** The only viable path is a distinct public event with `derivedFrom`; say so.
 3. **ADR-008 / ADR-009 / testing.md — mark replay, DLQ delivery, resource policies, IAM roles and every Firehose behaviour beyond "record reaches S3" `sandbox-only`.** platform-local's bronze comes from the Lambda shim sharing the real validation code. platform-local must stub them honestly (an `expect_dlq` that reads LocalStack's `TargetDeliveryFailure` log line is the most it can do) and the nightly sandbox run becomes a release gate for those mechanisms, not a nice-to-have.
 4. **Day one toolchain — use the licensed image with `ENFORCE_IAM=1` for platform-local and CI** (the token is already available on this machine; the Taskfile shows the pattern). It is the only way IAM roles and resource policies fail locally, and it is the only line receiving fixes. Keep `4.14.0` as the documented no-licence fallback and note it cannot enforce IAM. Archives need `ENFORCE_IAM=0` until LocalStack fixes its internal archive rule.
