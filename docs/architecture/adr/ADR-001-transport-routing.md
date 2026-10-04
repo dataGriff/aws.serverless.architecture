@@ -2,6 +2,7 @@
 id: ADR-001
 title: "Transport & routing"
 status: accepted
+superseded_by: "ADR-021 (proposed) — premise failed: EventBridge Classic delivers one bus-to-bus hop; see spikes/B-localstack-buses-end-to-end/findings.md"
 date: 2026-10-04
 reviewed: changed-after-review
 revisit_when:

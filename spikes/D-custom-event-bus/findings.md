@@ -16,6 +16,56 @@ Run on 2026-10-04 in **eu-west-1** against the sandbox account (the Custom Event
 
 One `awscc_eventsv2_event_bus` (7-day retention). Six `awscc_eventsv2_subscriber`s, each with a delivery role, explicit retry policy and its own DLQ: two consumer subscriptions using Spike B's patterns, an everything probe with `WITH_METADATA`, a FIFO subscriber to an SQS FIFO queue keyed by `EventGroupId`, a deliberately unreachable target, and a bus-to-bus subscriber back to a Classic bus. Plus a Classic `orders-bus` with Spike B's public-forward rule targeting the Custom bus, and a probe on it. Tests create and delete two more subscribers at runtime (replay, defaults).
 
+```mermaid
+flowchart LR
+  subgraph AWS[eu-west-1 · one account · awscc + aws providers]
+    OB[(spike-d-orders-bus<br/>Classic)]
+    OFR["orders-public-forward rule<br/>role: events:PutEvents on the v2 ARN"]
+    OPR[probe rule] --> OPQ[(probe-classic)]
+    CB[(spike-d-central<br/>Custom Event Bus · retention 7d)]
+    S1["payments-consumer-order-placed<br/>DATA filter = Classic pattern · RAW"] --> Q1[(SQS)]
+    S2[orders-consumer-payment-captured] --> Q2[(SQS)]
+    S3[probe-all · WITH_METADATA] --> Q3[(SQS)]
+    S4["fifo-orders · Type=FIFO<br/>MessageGroupId = $events.SystemMetadata.EventGroupId"] --> Q4[(SQS FIFO)]
+    S5[broken-target · role lacks SendMessage] -.-> D5[(DLQ · ACCESS_DENIED)]
+    S6["loop-back-to-classic<br/>target = orders-bus"] --> OB
+    S7[replay · POINT_IN_TIME<br/>created by the test] --> Q7[(probe-replay)]
+    OB --> OFR -- "hop 1 ✓" --> CB
+    OB --> OPR
+    CB --> S1
+    CB --> S2
+    CB --> S3
+    CB --> S4
+    CB --> S5
+    CB --> S6
+    CB --> S7
+  end
+  T[tests · PutEvents with<br/>EventGroupId · DeduplicationId] --> CB
+  T --> OB
+  classDef warn fill:#fff3cd,stroke:#b8860b
+  S6:::warn
+```
+
+Two loop outcomes, both recorded: an event published straight on central → `loop-back-to-classic` → `orders-bus` → forward rule → central is **refused at central** (`LOOP_DETECTED` on the forward rule's DLQ); an event that *started* on `orders-bus` → central → `loop-back-to-classic` → `orders-bus` is **dropped silently**. Hence the hard rule in ADR-021.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant OB as orders-bus (Classic)
+  participant CB as central (Custom)
+  participant S as subscriber
+  participant Q as consumer queue
+  participant R as replay subscriber
+
+  OB->>CB: forward rule · hop 1 ✓ (test_classic_rule_can_target_custom_bus)
+  CB->>S: DATA filter matches
+  S->>Q: RAW → Classic envelope, unchanged (test_classic_pattern_as_data_filter…)
+  Note over CB: retained 7d · EventGroupId · DeduplicationId
+  CB-->>CB: duplicate publish → SuccessCode=DEDUPLICATED (test_dedup_by_id…)
+  R->>CB: created later · StartingPosition=POINT_IN_TIME (≥ 5 min back)
+  CB->>R: retained event · aws:DeliveryType=REPLAY (test_replay_via_point_in_time…)
+```
+
 ## Evidence
 
 | Capability | Result | Test |

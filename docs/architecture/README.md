@@ -48,6 +48,8 @@ flowchart TB
 
 Three domains are shown; every domain account has the same shape. Everything inside the platform and domain accounts is generated from the catalog.
 
+> **Proposed change (2026-10-04, Spikes B and D):** the `central-bus → domain bus` fan-out hop in this diagram is refused by EventBridge Classic (`THIRD_ACCOUNT_HOP_DETECTED`). [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) proposes a Custom Event Bus as central with consumer-owned subscribers and carries the replacement diagram; ADR-022 to ADR-025 follow from it. This diagram is left as the accepted state until those ADRs are accepted.
+
 ## Glossary
 
 - **central-bus** — the one EventBridge bus that routes public events between domains; it persists nothing except a native archive used only for replay.

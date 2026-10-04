@@ -9,6 +9,66 @@ Run on 2026-10-04 against LocalStack Community **4.14.0** (`localstack/localstac
   2. **Input transformers are not available on cross-account bus targets** ("`Input`, `InputPath`, and `InputTransformer` are not available with `PutTarget` if the target is an event bus of a different AWS account", [PutTargets API](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutTargets.html)). ADR-006's only revisit path ("input transformer on the forward rule") therefore cannot be taken in the multi-account end state.
 - Everything else the spike was asked to prove — bus-to-bus targets with roles, bus resource policies written cross-account style, `anything-but`+`prefix`, own-event exclusion, consumer rules on the domain bus, envelope preservation, at-least-once, pattern sizes — works on LocalStack and matches the docs. DLQ delivery, resource-policy enforcement and archive replay are **sandbox-only** (LocalStack Community does not implement them).
 
+## What was built and what happened to one event
+
+```mermaid
+flowchart LR
+  subgraph LS[LocalStack 4.14 / 2026.9 · one account · Terraform]
+    OB[(orders-bus)]
+    PB[(payments-bus)]
+    CB[(central-bus)]
+    OF[orders-public-forward<br/>prefix orders. + OrderPlaced.v1] 
+    PF[payments-public-forward]
+    OFO[orders-fan-out<br/>anything-but prefix orders.]
+    PFO[payments-fan-out<br/>anything-but prefix payments.]
+    OC[orders-consumer-payment-captured] --> OCQ[(SQS)]
+    PC[payments-consumer-order-placed] --> PCQ[(SQS)]
+    OP[probe-all] --> OPQ[(SQS)]
+    PP[probe-all] --> PPQ[(SQS)]
+    CP[probe-all] --> CPQ[(SQS)]
+    BT["broken-target<br/>queue without policy"] --> BTQ[(SQS)]
+    AR[archiver Lambda] --> S3[("S3 raw/source=/detail_type=")] --> DUCK[DuckDB · task query]
+    OB --> OF --> CB
+    PB --> PF --> CB
+    CB --> OFO --> OB
+    CB --> PFO --> PB
+    OB --> OC
+    OB --> OP
+    PB --> PC
+    PB --> PP
+    CB --> CP
+    CB --> BT
+    CB --> AR
+  end
+  classDef dlq fill:#fee,stroke:#c33
+  D1[(fan-out DLQs)]:::dlq
+  OFO -.-> D1
+  PFO -.-> D1
+```
+
+Every target has a role and a DLQ. On LocalStack the drawing above is exactly what happens: one `OrderPlaced.v1` put on `orders-bus` reaches `payments-bus` and its consumer queue. On AWS the second hop (`central → payments-bus`) is refused and the event lands in the fan-out DLQ:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant T as test
+  participant OB as orders-bus
+  participant CB as central-bus
+  participant PB as payments-bus
+  participant DLQ as payments-fan-out-dlq
+
+  T->>OB: PutEvents OrderPlaced.v1
+  OB->>CB: orders-public-forward (hop 1)
+  alt LocalStack (both editions)
+    CB->>PB: payments-fan-out (hop 2) — delivered
+    Note over PB: consumer rule fires · test passes (false positive)
+  else real AWS (eu-west-2 sandbox)
+    CB--xPB: hop 2 refused
+    CB->>DLQ: ERROR_CODE=THIRD_ACCOUNT_HOP_DETECTED<br/>"an event can be sent to an event bus target only once"
+    Note over PB: nothing arrives · test fails · marker: sandbox
+  end
+```
+
 ## Confirmed on real AWS (sandbox account, eu-west-2, 2026-10-04)
 
 `task sandbox-apply && task sandbox-test` applies the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and runs the suite with real credentials. Result: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only), and the failures are exactly the two-hop tests.
