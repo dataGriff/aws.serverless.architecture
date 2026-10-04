@@ -182,8 +182,9 @@ resource "awscc_eventsv2_subscriber" "broken_target" {
 resource "awscc_eventsv2_subscriber" "loop_back_to_classic" {
   name          = "${local.prefix}-loop-back-to-classic"
   event_bus_arn = awscc_eventsv2_event_bus.central.event_bus_arn
+  # narrow to the two loop tests' events so the rest of the suite does not depend on best-effort loop detection
   filter_configuration = {
-    filters = [{ scope = "DATA", pattern = jsonencode({ source = [{ prefix = "orders." }], "detail-type" = ["OrderPlaced.v1"] }) }]
+    filters = [{ scope = "DATA", pattern = jsonencode({ source = [{ prefix = "orders." }], "detail-type" = ["OrderPlaced.v1"], detail = { via = ["classic-loop", "direct"] } }) }]
   }
   invoke_configuration     = { target_arn = aws_cloudwatch_event_bus.orders.arn, role_arn = aws_iam_role.delivery.arn }
   retry_policy             = { max_retry_attempts = 1, max_event_age_in_seconds = 60 }

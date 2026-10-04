@@ -16,7 +16,7 @@ revisit_when:
 
 ## Why ADR-008 is reopened
 
-ADR-008 relied on the Classic native archive and `StartReplay`. With central as a Custom Event Bus (ADR-021) there is no archive: **the bus retains events**, and "there is no separate replay API: a subscriber reads retained events from its starting position" ([docs](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus-replay.html)). Spike D proved it: a subscriber created after the fact with `StartingPosition=POINT_IN_TIME` re-delivered the earlier event with `SystemMetadata."aws:DeliveryType"=REPLAY` and identical `Data` (`test_replay_via_point_in_time_subscriber_marks_events_replay`).
+ADR-008 relied on the Classic native archive and `StartReplay`. With central as a Custom Event Bus (ADR-021) there is no archive: **the bus retains events**, and "there is no separate replay API: a subscriber reads retained events from its starting position" ([docs](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus-replay.html)). Spike D proved it: a subscriber created after the fact with `StartingPosition=POINT_IN_TIME` re-delivered the earlier event with `SystemMetadata` field `aws:DeliveryType` = `REPLAY` (in JSONata: `` $events.SystemMetadata.`aws:DeliveryType` ``) and identical `Data` (`test_replay_via_point_in_time_subscriber_marks_events_replay`).
 
 Spike B also showed the Classic path could not be tested locally anyway: LocalStack's `StartReplay` returns a 500 in both editions and leaves the replay in `STARTING` forever.
 

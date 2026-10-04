@@ -63,7 +63,9 @@ resource "aws_iam_role_policy" "firehose" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["s3:PutObject", "s3:GetBucketLocation", "s3:ListBucket"], Resource = [aws_s3_bucket.bronze.arn, "${aws_s3_bucket.bronze.arn}/*"] },
+      # the full set real Firehose needs for S3 delivery (multipart uploads included); LocalStack does not check it
+      { Effect = "Allow", Action = ["s3:PutObject", "s3:GetObject", "s3:AbortMultipartUpload", "s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"], Resource = [aws_s3_bucket.bronze.arn, "${aws_s3_bucket.bronze.arn}/*"] },
+      { Effect = "Allow", Action = ["logs:PutLogEvents"], Resource = "*" },
       { Effect = "Allow", Action = ["lambda:InvokeFunction", "lambda:GetFunctionConfiguration"], Resource = "${aws_lambda_function.validator.arn}:*" },
       { Effect = "Allow", Action = ["lambda:InvokeFunction", "lambda:GetFunctionConfiguration"], Resource = aws_lambda_function.validator.arn },
     ]

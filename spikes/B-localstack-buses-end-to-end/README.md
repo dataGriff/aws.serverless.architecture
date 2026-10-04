@@ -8,7 +8,8 @@ mise install          # terraform, task, uv, awscli (root .mise.toml)
 task up               # LocalStack Community 4.14.0 (pinned; `latest` needs a licence token)
 task up LICENSED=true # LocalStack 2026.09.0 with ENFORCE_IAM; needs LOCALSTACK_AUTH_TOKEN exported (never commit it)
 task apply            # 3 buses · forward + fan-out rules · consumer rules · probes · broken target · S3 archiver
-task test             # 15 tests; names are the contract (14 pass, 1 xfail on LocalStack)
+task test             # the 9 tests LocalStack can answer; sandbox-marked tests (two-hop, DLQ) are excluded here — LocalStack gives false positives
+task test-all-local   # all 15 on LocalStack anyway (14 pass, 1 xfail) — to see the false positives for yourself
 task probe            # pattern operators, archive/replay, ordering — prints a table
 task query            # DuckDB over the S3 archive written by the central archiver Lambda (stretch)
 task probe-firehose   # outside the spike boundary: does LocalStack honour ADR-009's Firehose features? (it does not — see findings)

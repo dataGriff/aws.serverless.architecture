@@ -9,7 +9,7 @@ import json
 import subprocess
 import time
 
-from harness import ENDPOINT, TF_DIR, envelope, put, s3
+from harness import TF_DIR, duck_s3, envelope, put, s3
 
 
 def bucket() -> str:
@@ -53,13 +53,7 @@ def main() -> None:
     rows.append(("invalid event (direct PII in clear) quarantined under processing-failed/",
                  bad_key if bad_key and bad_key.startswith("processing-failed/") else f"NO: {bad_key or 'not written anywhere'}"))
     if good_key and good_key.startswith("bronze/"):
-        import duckdb
-        con = duckdb.connect()
-        con.execute("INSTALL httpfs; LOAD httpfs;")
-        host = ENDPOINT.split("://", 1)[1]
-        con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; SET s3_region='eu-west-2'; "
-                    "SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
-        n = con.execute(f"SELECT source, detail_type, count(*) FROM read_ndjson_auto('s3://{b}/bronze/**/*', hive_partitioning=true) GROUP BY ALL").fetchall()
+        n = duck_s3().execute(f"SELECT source, detail_type, count(*) FROM read_ndjson_auto('s3://{b}/bronze/**/*', hive_partitioning=true) GROUP BY ALL").fetchall()
         rows.append(("DuckDB read_ndjson_auto over bronze/ with hive partitions", str(n)))
     print("| Firehose on LocalStack | Result |\n| --- | --- |")
     for k, v in rows:

@@ -25,7 +25,7 @@ ADR-006's only revisit path was "an input transformer on the forward rule". That
 
 Events are **forwarded unchanged** from the domain bus to central; the catalog marks them public. The envelope keeps `eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`.
 
-The `replay` flag is **set by the subscriber, not the producer**: the generated subscriber uses a `JSONATA` transformer that re-emits the Classic envelope with `detail.replay = ($events.SystemMetadata."aws:DeliveryType" = "REPLAY")`, so consumers keep one payload shape for live and replayed events. Until that expression is verified in the sandbox the subscriber delivers `RAW` (Spike D: byte-identical to the Classic envelope) and `replay` is absent, meaning `false`.
+The `replay` flag is **set by the subscriber, not the producer**: the generated subscriber uses a `JSONATA` transformer that re-emits the Classic envelope with `detail.replay` set from `` $events.SystemMetadata.`aws:DeliveryType` = "REPLAY" `` (JSONata needs backticks around a name containing `:`, as Spike D's FIFO subscriber does for `` `aws:EventId` ``), so consumers keep one payload shape for live and replayed events. Until that expression is verified in the sandbox the subscriber delivers `RAW` (Spike D: byte-identical to the Classic envelope) and `replay` is absent, meaning `false`.
 
 Reshaping for a consumer is the consumer's business: a `JSONATA` transformer on its own subscriber, declared in its `receives[]` entry so the catalog shows it. Reshaping for everyone is a new public event with `derivedFrom`, published by the producer.
 

@@ -6,6 +6,8 @@ env:
   AWS_DEFAULT_REGION: eu-west-2
 vars:
   TF_DIR: terraform/envs/local
+  # real-AWS prefix: drop the LocalStack env above, pick the SSO profile (PROFILE= to override)
+  SANDBOX: env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}}
 tasks:
   default:
     cmds:
@@ -15,8 +17,8 @@ tasks:
     cmds:
       - |
         if [ "{{.LICENSED}}" = "true" ]; then
-          # token from the environment, else from the user's interactive shell rc (never from a file in this repo)
-          export LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN:-$(zsh -ic 'printf %s "$LOCALSTACK_AUTH_TOKEN"' 2>/dev/null)}"
+          # token from the environment, else from ~/.zshrc.local (non-interactive: rc hooks cannot pollute the value; never from a file in this repo)
+          export LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN:-$(zsh -c 'source ~/.zshrc.local >/dev/null 2>&1; printf %s "$LOCALSTACK_AUTH_TOKEN"')}"
           export ENFORCE_IAM={{.ENFORCE_IAM | default "1"}}
           docker compose -f docker-compose.yml -f docker-compose.licensed.yml up -d
         else
@@ -40,7 +42,11 @@ tasks:
       - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
       - rm -f ../../../.queues.json ../../../.dlqs.json
   test:
-    desc: Run the spike tests (excludes the transformer test unless TRANSFORMER=true)
+    desc: Run the spike tests on LocalStack (sandbox-marked tests are excluded — LocalStack gives false positives for them; see findings)
+    cmds:
+      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer and not sandbox" {{.CLI_ARGS}}
+  test-all-local:
+    desc: Run every test on LocalStack including sandbox-marked ones, to see the false positives for yourself
     cmds:
       - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer" {{.CLI_ARGS}}
   test-transformer:
@@ -81,26 +87,26 @@ tasks:
     desc: "Apply buses, rules and probes to a real AWS account: task sandbox-apply [PROFILE=admin]"
     dir: terraform/envs/sandbox
     cmds:
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform init -input=false
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform apply -input=false -auto-approve
+      - "{{.SANDBOX}} terraform init -input=false"
+      - "{{.SANDBOX}} terraform apply -input=false -auto-approve"
       - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
   sandbox-test:
-    desc: "Run the suite against the sandbox (archiver/DuckDB tests skip): task sandbox-test [PROFILE=admin] [-- -k ...]"
+    desc: "Run the suite against the sandbox, sandbox-marked tests included (archiver/DuckDB tests skip): task sandbox-test [PROFILE=admin] [-- -k ...]"
     cmds:
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 --with pytest pytest -v -rxXs tests -m "not transformer" {{.CLI_ARGS}}
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 --with pytest pytest -v -rxXs tests -m \"not transformer\" {{.CLI_ARGS}}"
   sandbox-depths:
     desc: Queue depths in the sandbox
     cmds:
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/queue_depths.py
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/queue_depths.py"
   sandbox-dlq-peek:
     desc: Every sandbox DLQ record with its ERROR_CODE / ERROR_MESSAGE
     cmds:
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/dlq_peek.py
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/dlq_peek.py"
   sandbox-destroy:
     desc: Tear the sandbox resources down
     dir: terraform/envs/sandbox
     cmds:
-      - env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}} terraform destroy -input=false -auto-approve
+      - "{{.SANDBOX}} terraform destroy -input=false -auto-approve"
       - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
   depths:
     desc: Depth of every queue (probes, consumers, DLQs)

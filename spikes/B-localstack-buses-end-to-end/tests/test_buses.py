@@ -74,8 +74,7 @@ def test_internal_event_never_reaches_central_or_payments():
     expect_none(Q["payments_probe"], d["eventId"])
 
 
-@TWO_HOPS
-def test_fan_out_does_not_echo_own_event():
+def test_fan_out_does_not_echo_own_event():  # one hop only (orders-bus -> central), so not a sandbox test
     d = put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=2.0))
     expect(Q["central_probe"], d["eventId"])
     # exactly one delivery on orders' own bus: the original put, never a copy back from central
@@ -149,7 +148,7 @@ def test_anything_but_prefix_supported_or_fallback():
 @localstack_only
 def test_archiver_writes_every_central_event_to_s3():
     d = put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=6.0))
-    obj = archived(d["eventId"])
+    obj = archived(d["eventId"], source="orders.order-service", detail_type="OrderPlaced.v1")
     assert obj["source"] == "orders.order-service" and obj["detail"] == d
     assert obj["_key"] == f"raw/source=orders.order-service/detail_type=OrderPlaced.v1/{obj['id']}.json"
     assert dlq_count("central-archive") == 0
@@ -160,13 +159,13 @@ def test_internal_event_is_never_archived():
     d = put("orders-bus", "orders.order-service", "order.aggregate.updated", envelope(row={"internal": True}))
     expect(Q["orders_probe"], d["eventId"])
     time.sleep(5)
-    assert d["eventId"] not in archived_ids()
+    assert d["eventId"] not in archived_ids(source="orders.order-service", detail_type="order.aggregate.updated")
 
 
 @localstack_only
 def test_duckdb_reads_archive_with_hive_partitions():
     d = put("payments-bus", "payments.payment-service", "PaymentCaptured.v1", envelope(amount=7.0))
-    archived(d["eventId"])
+    archived(d["eventId"], source="payments.payment-service", detail_type="PaymentCaptured.v1")
     con = duck()
     rows = con.execute("SELECT source, detail_type, count(*) FROM archive GROUP BY ALL ORDER BY 1, 2").fetchall()
     assert ("payments.payment-service", "PaymentCaptured.v1") in {(r[0], r[1]) for r in rows}, rows

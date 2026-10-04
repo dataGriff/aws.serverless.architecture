@@ -123,38 +123,54 @@ def archive_bucket() -> str:
     return out.decode().strip()
 
 
-def archived(event_id: str, timeout: float = 20.0) -> dict:
-    """Wait for the archiver to land the event in S3; return the object as a dict."""
-    bucket, deadline = archive_bucket(), time.time() + timeout
+def _archive_prefix(source: str | None, detail_type: str | None) -> str:
+    """The archiver's key is deterministic, so scan only the partition the event belongs to."""
+    if source and detail_type:
+        return f"raw/source={source}/detail_type={detail_type}/"
+    return "raw/"
+
+
+def archived(event_id: str, timeout: float = 20.0, *, source: str | None = None, detail_type: str | None = None) -> dict:
+    """Wait for the archiver to land the event in S3; return the object as a dict. Keys already read are not re-fetched."""
+    bucket, prefix, deadline, seen = archive_bucket(), _archive_prefix(source, detail_type), time.time() + timeout, set()
     while time.time() < deadline:
-        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="raw/"):
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
+                if obj["Key"] in seen:
+                    continue
+                seen.add(obj["Key"])
                 body = json.loads(s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read())
                 if body.get("detail", {}).get("eventId") == event_id:
                     body["_key"] = obj["Key"]
                     return body
         time.sleep(1)
-    raise AssertionError(f"eventId {event_id} was not archived to s3://{bucket}/raw/ within {timeout}s")
+    raise AssertionError(f"eventId {event_id} was not archived to s3://{bucket}/{prefix} within {timeout}s")
 
 
-def archived_ids() -> set[str]:
+def archived_ids(*, source: str | None = None, detail_type: str | None = None) -> set[str]:
     bucket, ids = archive_bucket(), set()
-    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="raw/"):
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=_archive_prefix(source, detail_type)):
         for obj in page.get("Contents", []):
             body = json.loads(s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read())
             ids.add(body.get("detail", {}).get("eventId"))
     return ids
 
 
-def duck():
-    """DuckDB connection pointed at LocalStack's S3 (httpfs, path-style, test creds)."""
+def duck_s3():
+    """DuckDB connection able to read LocalStack's S3 (httpfs, path-style, test creds, no views)."""
     import duckdb
-    assert IS_LOCALSTACK, "duck() is wired for LocalStack's S3 only; the sandbox env has no archiver"
+    assert IS_LOCALSTACK, "DuckDB-over-S3 helpers are wired for LocalStack only; the sandbox env has no archiver"
     host = ENDPOINT.split("://", 1)[1]
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
     con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; "
                 f"SET s3_region='{REGION}'; SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
+    return con
+
+
+def duck():
+    """duck_s3() plus the `archive` view over the central archiver's bucket."""
+    con = duck_s3()
     con.execute(f"CREATE VIEW archive AS SELECT * FROM read_json_auto('s3://{archive_bucket()}/raw/**/*.json', "
                 "hive_partitioning=true, union_by_name=true)")
     return con

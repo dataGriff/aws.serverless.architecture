@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Confirmed on real AWS (sandbox account, eu-west-2, 2026-10-04)
 
-`task sandbox-apply && task sandbox-test` applies the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and runs the suite with real credentials. Result: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only), and the failures are exactly the two-hop tests.
+`task sandbox-apply && task sandbox-test` applies the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and runs the suite with real credentials. Result of the first run: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only). Five failures are the two-hop tests; the sixth was the one-hop fan-out test's DLQ-depth assertion tripping on residue (note below), fixed and re-run green, so the settled result is **5 failed (all two-hop), 7 passed, 3 skipped**.
 
 | Test | LocalStack | Real AWS | What AWS said |
 | --- | --- | --- | --- |
@@ -103,7 +103,8 @@ Note on the one-hop fan-out test: on the first AWS run it failed only on its DLQ
 
 ```sh
 mise install                                 # terraform, task, uv, awscli
-task -d spikes/B-localstack-buses-end-to-end reset   # down → up → apply → test   (14 passed, 1 xfailed, ~2 min apply + ~2 min tests)
+task -d spikes/B-localstack-buses-end-to-end reset   # down → up → apply → test   (9 passed: sandbox-marked tests excluded locally, ~2 min apply + ~1 min tests)
+task -d spikes/B-localstack-buses-end-to-end test-all-local   # all 15 on LocalStack: 14 passed, 1 xfailed — six of them false positives
 task -d spikes/B-localstack-buses-end-to-end query   # DuckDB over the S3 archive: what flowed through central
 task -d spikes/B-localstack-buses-end-to-end probe   # pattern operators, archive/replay, ordering → markdown table
 task -d spikes/B-localstack-buses-end-to-end apply FAN_OUT=enumerated && task -d spikes/B-localstack-buses-end-to-end test
@@ -176,6 +177,8 @@ What this does not prove: anything about Firehose (buffering, dynamic partitioni
 
 ## Firehose probe (outside Spike B's boundary; answers the ADR-009 open question)
 
+> Scope note: the spike prompt and `CLAUDE.md` rule Firehose out of Spike B. This probe was run on explicit instruction after the Lambda stretch raised the question, and is kept behind `enable_firehose_probe=false` so `task apply` / `task test` never touch it. It is evidence for ADR-024, not part of Spike B's result.
+
 `task probe-firehose` applies a Firehose stream on `central-bus` in ADR-009's shape — EventBridge rule → Firehose (role) → S3 with a validation Lambda (`ProcessingConfiguration`), dynamic partitioning on `source` / `detail-type` from the Lambda's partition keys, `ErrorOutputPrefix = processing-failed/…`, 60 s / 64 MiB buffers — then puts one valid event and one carrying `customerEmail` in clear. Same result on Community 4.14.0 and licensed 2026.9.0.
 
 | ADR-009 mechanism | LocalStack | Evidence |
@@ -224,7 +227,7 @@ Re-run the same day with `localstack/localstack:2026.09.0` (`edition: pro`, lice
 
 Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 
-- `test_public_event_from_orders_reaches_payments_probe`, `test_public_event_reaches_payments_consumer_rule`, `test_fan_out_does_not_echo_own_event`, `test_three_bus_loop_terminates`, `test_envelope_preserved_across_two_hops`, `test_duplicate_put_is_delivered_twice` — all two-hop; **expected to fail on AWS as the topology stands**.
+- `test_public_event_from_orders_reaches_payments_probe`, `test_public_event_reaches_payments_consumer_rule`, `test_three_bus_loop_terminates`, `test_envelope_preserved_across_two_hops`, `test_duplicate_put_is_delivered_twice` — all two-hop; **confirmed failing on AWS** (`THIRD_ACCOUNT_HOP_DETECTED`). `test_fan_out_does_not_echo_own_event` is one hop and passes on AWS; it is not marked.
 - `test_broken_target_lands_in_dlq` — DLQ delivery, DLQ message shape (`ERROR_CODE`/`ERROR_MESSAGE` attributes), DLQ latency, resource-policy denial. Also the manual `task send … && task dlq` path.
 - `test_input_transformer_on_bus_target` — same-account only; cross-account is documented as unsupported.
 - Plus, not tests here: IAM role evaluation on bus targets, `StartReplay` with the `replay-name` field, and whether `time` survives a Classic bus-to-bus hop.

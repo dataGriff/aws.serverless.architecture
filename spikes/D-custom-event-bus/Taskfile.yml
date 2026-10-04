@@ -44,5 +44,5 @@ tasks:
     desc: Tear everything down (subscribers created by tests are deleted by the tests)
     dir: "{{.TF_DIR}}"
     cmds:
-      - terraform destroy -input=false -auto-approve
+      - terraform destroy -input=false -auto-approve -parallelism=1
       - rm -f ../.outputs.json
