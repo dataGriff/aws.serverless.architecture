@@ -5,7 +5,7 @@ Run: task apply && task test
 """
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -102,8 +102,8 @@ def test_unordered_probe_does_not_guarantee_order():
 
 
 def test_replay_via_point_in_time_subscriber_marks_events_replay():
-    start = datetime.now(timezone.utc)
-    time.sleep(1)
+    # API rule: "PointInTimeConfiguration.StartingPoint must be at least 5 minutes in the past"
+    start = datetime.now(timezone.utc) - timedelta(minutes=6)
     d = put("orders.order-service", "OrderPlaced.v1", envelope(total=9.0, replayme=True))
     expect(Q["payments-consumer-order-placed"], d["detail"]["eventId"])  # live delivery done
     arn = create_subscriber("replay", Q["probe-replay"], StartingPosition="POINT_IN_TIME",
@@ -123,8 +123,13 @@ def test_broken_target_lands_in_subscriber_dlq():
     d = put("platform.spike", "BrokenTargetProbe.v1", envelope())
     recs = dlq_records("broken-target", wait=150)
     assert recs, "nothing reached the subscriber DLQ within 150 s"
-    print("\nDLQ record keys:", sorted(k for k in recs[0] if not k.startswith("_")), "attrs:", recs[0]["_attrs"])
-    assert any(d["detail"]["eventId"] in json.dumps(r) for r in recs), recs[0]
+    r = recs[0]
+    print("\nDLQ record:", json.dumps({k: v for k, v in r.items() if not k.startswith("_")}, default=str)[:1500])
+    print("attrs:", r["_attrs"])
+    # v2 DLQ record is an envelope, not the event: {id, version, busArn, subscriberArn, targetArn, errorCode,
+    # errorMessage, retryAttempts, exhaustedRetryCondition, failedMessages[...]}
+    assert r["_attrs"]["ERROR_CODE"] == "ACCESS_DENIED" and r["errorCode"] == "ACCESS_DENIED"
+    assert any(d["detail"]["eventId"] in json.dumps(m) or d["EventId"] in json.dumps(m) for m in r["failedMessages"]), r["failedMessages"]
 
 
 # ---- coexistence with Classic ----------------------------------------------------------------------------
@@ -134,20 +139,25 @@ def test_classic_rule_can_target_custom_bus():
     d = put_classic(CLASSIC_BUS, "orders.order-service", "OrderPlaced.v1", envelope(total=11.0, via="classic"))
     e = expect(Q["payments-consumer-order-placed"], d["eventId"], timeout=60)
     assert e["detail"] == d
-    assert not drain(DLQ["classic-forward"], seconds=3)
+    dead = [r for r in drain(DLQ["classic-forward"], seconds=3) if r.get("detail", {}).get("eventId") == d["eventId"]]
+    assert not dead, dead[0]["_attrs"]
 
 
 @pytest.mark.record
 def test_subscriber_back_to_classic_bus_from_classic_origin():
     """Classic orders-bus -> Custom central -> subscriber -> Classic orders-bus. Delivered twice, dropped, or LOOP_DETECTED?"""
     d = put_classic(CLASSIC_BUS, "orders.order-service", "OrderPlaced.v1", envelope(total=12.0, via="classic-loop"))
-    time.sleep(20)
-    copies = count_deliveries(Q["probe-classic"], d["eventId"], settle=10)
-    dead = [r for r in drain(DLQ["loop-back-to-classic"], seconds=5)]
-    codes = [r["_attrs"].get("ERROR_CODE") or next((v for k, v in r.items() if "rror" in k), None) for r in dead]
+    copies, dead, deadline = 0, [], time.time() + 150  # subscriber retry policy: 1 attempt / 60 s before the DLQ
+    while time.time() < deadline and not (copies >= 2 or dead):
+        copies += count_deliveries(Q["probe-classic"], d["eventId"], settle=5)
+        dead += [r for r in drain(DLQ["loop-back-to-classic"], seconds=5)
+                 if d["eventId"] in json.dumps(r.get("failedMessages", "")) or d["eventId"] in json.dumps(r)]
+    codes = [(r["_attrs"].get("ERROR_CODE"), r.get("errorMessage", "")[:160]) for r in dead]
     print(f"\ncopies on Classic orders-bus probe: {copies}; loop-back DLQ records: {len(dead)} {codes}")
-    assert copies >= 1  # the original put always lands once
-    assert copies == 2 or dead, "second copy neither delivered nor dead-lettered"
+    # Recorded 2026-10-04: the event is NOT delivered back to its Classic bus of origin and NO DLQ record is written
+    # within 150 s — a silent drop. (The other direction, direct publish -> subscriber -> Classic -> forward rule ->
+    # Custom bus, IS surfaced: LOOP_DETECTED on the forward rule's DLQ.) If this assertion fails, AWS changed behaviour.
+    assert copies == 1 and not dead, f"behaviour changed: copies={copies}, dlq={codes}"
 
 
 def test_subscriber_to_classic_bus_from_direct_publish_is_one_hop():
@@ -160,10 +170,10 @@ def test_subscriber_to_classic_bus_from_direct_publish_is_one_hop():
 
 def test_wildcard_filter_is_rejected():
     with pytest.raises(eb.exceptions.InvalidInputException) as ex:
-        eb.create_subscriber(Name="spike-d-wildcard", EventBusArn=outputs()["bus_arn"],
-                             InvokeConfiguration={"TargetArn": "arn:aws:sqs:eu-west-1:000000000000:x", "RoleArn": outputs()["delivery_role_arn"]},
-                             FilterConfiguration={"Filters": [{"Scope": "DATA", "Pattern": json.dumps({"source": [{"wildcard": "orders.*"}]})}]})
-    assert "wildcard" in str(ex.value).lower()
+        arn = create_subscriber("wildcard", Q["probe-replay"],
+                                FilterConfiguration={"Filters": [{"Scope": "DATA", "Pattern": json.dumps({"source": [{"wildcard": "orders.*"}]})}]})
+        delete_subscriber(arn)  # only reached if AWS accepted it
+    assert "wildcard" in str(ex.value).lower(), str(ex.value)
 
 
 def test_anything_but_prefix_filter_is_accepted():
