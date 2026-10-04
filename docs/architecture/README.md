@@ -1,6 +1,6 @@
 # Event & API platform — architecture
 
-EventBridge-first, domain-owned, catalog-driven. Each domain account owns its bus, its rules, its services and its API; the platform account owns the central bus (with a native archive for replay only), the Firehose archive and compaction into *one bronze and one silver bucket per domain*, API auth, generated alarms, and per-domain read-only roles. EventCatalog is the source of truth for events *and* APIs — design-first OpenAPI modelled as commands and queries — and generates every account's IaC, gateways, clients, mocks and alarms. The data layer is S3 + Firehose + one compactor Lambda + Parquet, queried with DuckDB. PII in events is expected and classified: pseudonymous identifiers travel in clear, direct identifiers are encrypted per subject so erasure is a key deletion, special categories never travel. Every dataset the platform serves — each silver table, each domain's bronze, any gold built later — has an ODCS data contract generated from the same catalog entry and tested nightly. Nothing else (Athena, Glue, Iceberg, an orchestrator platform, a central edge, a data platform account) is built until a named trigger says so, and the trade-offs that buys are written down below.
+EventBridge-first, domain-owned, catalog-driven, in eu-west-1. Each domain account owns its Classic bus, its rules, its services and its API; the platform account owns the central bus — an EventBridge **Custom Event Bus** with 30-day retention, shared by RAM, on which each domain creates its own subscribers — the Firehose archive and compaction into *one bronze and one silver bucket per domain*, API auth, generated alarms, and per-domain read-only roles. EventCatalog is the source of truth for events *and* APIs — design-first OpenAPI modelled as commands and queries — and generates every account's IaC, gateways, clients, mocks and alarms. The data layer is S3 + Firehose + one compactor Lambda + Parquet, queried with DuckDB. PII in events is expected and classified: pseudonymous identifiers travel in clear, direct identifiers are encrypted per subject so erasure is a key deletion, special categories never travel. Every dataset the platform serves — each silver table, each domain's bronze, any gold built later — has an ODCS data contract generated from the same catalog entry and tested nightly. Nothing else (Athena, Glue, Iceberg, an orchestrator platform, a central edge, a data platform account) is built until a named trigger says so, and the trade-offs that buys are written down below.
 
 ## End state
 
@@ -11,9 +11,8 @@ flowchart TB
     G[Generator + CI: rules, policies, streams, buckets, REST APIs, clients, mocks, alarms, roles, env pins]
   end
   subgraph PLAT[Platform account — routing, governance, data operations]
-    CB[(central-bus · public events only · native archive 30d for replay)]
-    FAN[fan-out rule per domain: all public except own → domain bus]
-    FH[Firehose per domain: validate vs catalog schema → processing-failed/ + alarm]
+    CB[("central · Custom Event Bus · public events only<br/>retention 30d · shared by RAM · FIFO per aggregateId · dedup on eventId")]
+    FH[Firehose subscriber per domain: validate vs catalog schema → processing-failed/ + alarm]
     BR[(bronze bucket per domain · NDJSON · CMK · Object Lock · CRR in prod)]
     CMP[compactor per domain · T-2h · daily re-compact · dedupe]
     SV[(silver bucket per domain · Parquet · Hive partitions)]
@@ -22,44 +21,48 @@ flowchart TB
     OBS[generated alarms · OTel traces · nightly checks + reconciliation]
   end
   subgraph ORD[Orders account]
-    OB[(orders-bus)]
+    OB[(orders-bus · Classic · internal + public)]
     OS[order-service · outbox → relay module]
     OF[public-forward rule · source prefix orders.]
-    OC[consumer rules on own bus · from receives]
+    OC[internal consumer rules on own bus]
+    OSUB["subscribers on central · from receives · own role · DLQ"]
     OA[REST API from OpenAPI · orders.api.example.com]
     OI[(internal archive · 30d · own account)]
   end
   subgraph PAY[Payments account]
-    PB[(payments-bus)]
+    PB[(payments-bus · Classic)]
+    PF[public-forward rule · source prefix payments.]
     PS[payment-service + saga module]
+    PSUB["subscribers on central · from receives"]
     PA[REST API + PSP webhook behind WAF]
     PCL[generated client for orders API]
   end
-  OS --> OB --> OF --> CB
+  OS --> OB --> OF -- "the one bus-to-bus hop" --> CB
+  PS --> PB --> PF --> CB
   OB --> OI
-  CB --> FAN --> PB --> PS
-  CB --> FH --> BR --> CMP --> SV --> DUCK
   OB --> OC
+  CB -. "DATA filter = catalog pattern" .-> PSUB --> PS
+  CB -. "DATA filter = catalog pattern" .-> OSUB --> OS
+  CB --> FH --> BR --> CMP --> SV --> DUCK
   PCL -- "GET /v1/orders/{id} · one sync hop" --> OA
   G -. generates IaC for every account .-> PLAT
   G -.-> ORD
   G -.-> PAY
 ```
 
-Three domains are shown; every domain account has the same shape. Everything inside the platform and domain accounts is generated from the catalog.
-
-> **Proposed change (2026-10-04, Spikes B and D):** the `central-bus → domain bus` fan-out hop in this diagram is refused by EventBridge Classic (`THIRD_ACCOUNT_HOP_DETECTED`). [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) proposes a Custom Event Bus as central with consumer-owned subscribers and carries the replacement diagram; ADR-022 to ADR-025 follow from it. This diagram is left as the accepted state until those ADRs are accepted.
+Two domains are shown; every domain account has the same shape. Everything inside the platform and domain accounts is generated from the catalog. There is exactly one bus-to-bus hop per event (domain bus → central); everything after central is a subscriber delivering to a target the consumer owns. No subscriber ever targets a domain bus — see [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) for why (`THIRD_ACCOUNT_HOP_DETECTED`, `LOOP_DETECTED`) and for the sequence diagrams.
 
 ## Glossary
 
-- **central-bus** — the one EventBridge bus that routes public events between domains; it persists nothing except a native archive used only for replay.
-- **fan-out-all** — one platform-owned rule per domain on central that forwards every public event except the domain's own to that domain's bus. Subscriptions are therefore consumer rules on the domain's own bus.
+- **central** — the platform's EventBridge **Custom Event Bus** (`eventsv2`): public events only, retained 30 days, shared to domain accounts by RAM. It replaces the Classic central bus and its native archive.
+- **domain bus** — a domain's own EventBridge Classic bus: every event the domain publishes lands here; internal consumers are rules on it; one generated rule forwards public events to central. LocalStack emulates it.
+- **subscriber** — the Custom Event Bus's routing unit: a filter (the catalog pattern as a `DATA` filter), one target, a delivery role, a retry policy and a DLQ, created in the *consuming* domain's account from its `receives[]`. There is no fan-out; a subscriber never targets a domain bus.
 - **public / internal** — `visibility` in the catalog. Public events are forwarded to central and archived; internal events never leave the domain account.
-- **audience** — `all` (default) or `restricted`; restricted events use per-subscription rules on central with producer approval.
+- **audience** — `all` (default) or `restricted`; a subscriber to a restricted event is generated only with producer approval recorded in the catalog.
 - **bronze / silver** — per-domain S3 buckets in the platform account: bronze is raw NDJSON written by Firehose (audit, replay source for analytics); silver is Parquet written by the compactor (query layer).
-- **platform-local** — the versioned Terraform module a domain applies in LocalStack to get a stub central bus, fan-out, archive, compactor and its own buckets, so it can test publication with no other domain present.
+- **platform-local** — the versioned Terraform module a domain applies in licensed LocalStack to get a *Classic* stub central whose rules have the subscriber's shape (same filter, the consumer's queue as target), the archive shim, compactor and its own buckets, so it can test publication with no other domain present. The real Custom Event Bus is sandbox-only.
 - **saga module** — the platform's in-domain stateful-process pattern (state table + Scheduler, or Step Functions template). Never a cross-domain workflow.
-- **replay flag** — `replay: true` in the envelope on re-driven events; side-effecting consumers skip them.
+- **replay flag** — `replay: true` in the envelope on re-driven events, set by the consumer's generated subscriber from `aws:DeliveryType=REPLAY`; side-effecting consumers skip them. Replay itself is a temporary `POINT_IN_TIME` subscriber over central's retention.
 - **x-pii** — the per-field classification in every catalog schema: `none` · `indirect` (pseudonymous ids, clear) · `direct` (encrypted per subject in public events) · `special` (never in any event).
 - **subject-key service** — platform module holding a data key per subject under the owning domain's CMK; producers encrypt `direct` fields with it, listed `decryptors` fetch it, erasure deletes it (crypto-shredding).
 - **ODCS** — Bitol's Open Data Contract Standard v3. Every dataset the platform serves (each silver table, each bronze, any gold) has one, generated from the event's catalog entry plus a small overlay, and tested nightly.

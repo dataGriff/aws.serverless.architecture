@@ -32,7 +32,7 @@ Prove every mechanism once, in one account, with real tests, before any generato
 
 ## Build (use the modules from prompt 02)
 
-- `platform/envs/local`: `central-bus` with native archive, the fan-out rule for orders (everything except `orders.`), the archive rule → Firehose (or the documented shim) → `orders-events-bronze` with the validation transform, the compactor → `orders-events-silver`, the `subject-keys` service, alarms.
+- `platform/envs/local`: a Classic stub `central` (stand-in for the Custom Event Bus, which LocalStack does not emulate), orders' `receives[]` rendered as rules on the stub targeting orders' consumer queues (the subscriber's shape; never a rule targeting `orders-bus`), the archive shim → `orders-events-bronze` running the same validation code as the Firehose transform (ADR-024), the compactor → `orders-events-silver`, the `subject-keys` service, alarms.
 - `domains/orders`: `orders-bus`, public-forward rule, one consumer rule from `receives[]`, `order-service` with an outbox, the relay module, the idempotency store, the REST API from the catalog OpenAPI with gateway validation, handlers for `POST /v1/orders` (writes the outbox) and `GET /v1/orders/{id}`, Prism serving the same spec.
 - `customerEmail` encrypted end to end through the subject-keys client; one consumer role with a decrypt grant and one without.
 - A hand-written ODCS contract for the `OrderPlaced.v1` silver table, following `data-contracts.md`, and `datacontract test` wired into `task test`.

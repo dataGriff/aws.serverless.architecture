@@ -12,7 +12,7 @@ revisit_when:
 
 ## Decision
 
-Single region. Bronze is versioned and replicated cross-region in prod; archive RPO is the Firehose buffer (≤ 60 s); the bus itself is rebuilt from IaC. Stated RTO: region recovery.
+Single region: **eu-west-1 (Ireland)**, chosen 2026-10-04 because the EventBridge Custom Event Bus (ADR-021) has no eu-west-2 endpoint; previously London. Bronze is versioned and replicated cross-region in prod; archive RPO is the Firehose buffer (≤ 60 s); the bus itself is rebuilt from IaC. Stated RTO: region recovery.
 
 ## Revisit only when
 

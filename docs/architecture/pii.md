@@ -24,6 +24,6 @@ PII will enter events; the platform classifies and controls it rather than prete
 
 ## Why this shape
 
-- Encrypting at the producer is the only control that follows the data into every copy EventBridge makes: buses, fan-out, DLQs, logs, archives, replays, laptops
+- Encrypting at the producer is the only control that follows the data into every copy EventBridge makes: buses, subscriber deliveries, DLQs, logs, the retained bus, replays, laptops
 - Crypto-shredding reconciles the two things fintech needs at once: an immutable, Object-Locked audit trail and erasure on request
 - Classification lives in the catalog, so the policy is generated and tested like everything else, and the ROPA is a report, not a spreadsheet

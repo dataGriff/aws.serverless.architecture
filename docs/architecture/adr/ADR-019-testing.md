@@ -1,8 +1,8 @@
 ---
 id: ADR-019
 title: "Testing"
-status: accepted
-superseded_by: "ADR-025 (proposed) — LocalStack returns false positives for hop limits, DLQs, IAM, replay and Firehose; those are sandbox-only"
+status: superseded
+superseded_by: "ADR-025 — LocalStack returns false positives for hop limits, DLQs, IAM, replay and Firehose; those are sandbox-only"
 date: 2026-10-04
 reviewed: changed-after-review
 revisit_when:

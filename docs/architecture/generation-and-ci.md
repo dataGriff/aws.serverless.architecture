@@ -4,7 +4,7 @@
 
 ### From `events/` + `visibility` + `audience` + `pii`
 
-- Per-domain **public-forward** pattern (split at 4KB); per-domain **fan-out** and **archive** rules on central
+- Per-domain **public-forward** pattern (split at 4KB); per-`receives[]` **subscriber** on central in the consumer's account (and its Classic-rule twin for `platform-local`); per-domain **Firehose subscriber** on central
 - Firehose validation schema bundles and per-event Parquet schemas (`schemas/<type>.json`) → typed `d_*` columns
 - Input-transformer templates where `derivedFrom` is set; `sunset` enforcement data
 - From `x-pii`: per-event encryption config (which fields, which subject-key policy), decrypt grants for the listed `decryptors`, Firehose ciphertext checks, silver column policy, log-scrubbing config, retention per class, and a records-of-processing (ROPA) export

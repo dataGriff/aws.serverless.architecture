@@ -31,7 +31,7 @@ Make isolation a product: a versioned stub any domain applies, a test helper pac
 
 ## Build
 
-- `platform-local` extracted as a versioned module: stub central bus, fan-out for the domain under test, archive (Firehose or shim), compactor, the domain's bucket pair, a probe queue, and a local `subject-keys` instance.
+- `platform-local` extracted as a versioned module: Classic stub central, the domain's `receives[]` as subscriber-shaped rules to its own queues, the archive shim (ADR-024), compactor, the domain's bucket pair, a probe queue, and a local `subject-keys` instance.
 - `platform_testing` (Python package, published): `assert_published`, `assert_not_published`, `assert_quarantined`, `duck()`, `prism(service, version)`, `replay(event)`, `erase_subject(id)`, `decrypt_as(role)`, pytest fixtures for LocalStack, Terraform apply, outbox drain and catalog checkout at a pin.
 - Payments calls the orders API through the generated client; its L1 tests run against the Prism mock of orders at a pinned catalog version; the pin lives in one file.
 - Erasure drill test: delete a subject key → the ungranted role never could read; the granted role now receives "erased"; `SubjectErased` arrives in both domains; a consumer that persisted decrypted data runs its purge.

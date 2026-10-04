@@ -1,8 +1,8 @@
 ---
 id: ADR-009
 title: "Archive"
-status: accepted
-superseded_by: "ADR-024 (proposed) — Firehose becomes a subscriber on central; LocalStack cannot test its partitioning, quarantine or transform contract"
+status: superseded
+superseded_by: "ADR-024 — Firehose becomes a subscriber on central; LocalStack cannot test its partitioning, quarantine or transform contract"
 date: 2026-10-04
 reviewed: changed-after-review
 revisit_when:

@@ -1,8 +1,8 @@
 ---
 id: ADR-008
 title: "Replay"
-status: accepted
-superseded_by: "ADR-023 (proposed) — central becomes a Custom Event Bus with retention; replay is a point-in-time subscriber"
+status: superseded
+superseded_by: "ADR-023 — central becomes a Custom Event Bus with retention; replay is a point-in-time subscriber"
 date: 2026-10-04
 reviewed: changed-after-review
 revisit_when:
