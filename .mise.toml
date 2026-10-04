@@ -1,0 +1,6 @@
+[tools]
+terraform = "1.9"
+task = "3"
+uv = "latest"
+awscli = "latest"
+node = "20"

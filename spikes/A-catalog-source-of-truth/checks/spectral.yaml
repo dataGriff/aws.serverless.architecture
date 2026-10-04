@@ -1,0 +1,30 @@
+# Starter Spectral ruleset — encode conventions.md (API conventions). Extend; each rule = one convention.
+extends: ["spectral:oas"]
+rules:
+  path-must-be-versioned:
+    description: Paths start with /v{n} (conventions.md)
+    given: "$.paths[*]~"
+    severity: error
+    then: { function: pattern, functionOptions: { match: "^/v[0-9]+/" } }
+  operation-has-message-type:
+    description: Every operation declares x-eventcatalog-message-type command|query (ADR-004)
+    given: "$.paths[*][get,post,put,patch,delete]"
+    severity: error
+    then:
+      - { field: x-eventcatalog-message-type, function: truthy }
+      - { field: x-eventcatalog-message-type, function: enumeration, functionOptions: { values: [command, query] } }
+  post-requires-idempotency-key:
+    description: Commands (POST) require an Idempotency-Key header parameter (conventions.md)
+    given: "$.paths[*].post"
+    severity: error
+    then: { field: parameters, function: schema, functionOptions: { schema: { type: array, contains: { type: object, properties: { name: { const: Idempotency-Key }, in: { const: header }, required: { const: true } }, required: [name, in, required] } } } }
+  errors-are-problem-json:
+    description: 4xx/5xx responses use application/problem+json (conventions.md)
+    given: "$.paths[*][*].responses[?(@property >= '400')].content"
+    severity: error
+    then: { field: application/problem+json, function: truthy }
+  security-declared:
+    description: A security scheme is declared and applied (ADR-005)
+    given: "$"
+    severity: error
+    then: { field: security, function: truthy }

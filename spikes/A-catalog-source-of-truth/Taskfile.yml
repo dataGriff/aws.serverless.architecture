@@ -1,0 +1,16 @@
+version: "3"
+tasks:
+  default: { cmds: [task --list] }
+  catalog:create:
+    desc: Create the EventCatalog site (interactive; pick the default template)
+    cmds: [npx @eventcatalog/create-eventcatalog@latest catalog]
+  catalog:dev: { dir: catalog, cmds: [npm run dev] }
+  catalog:build: { dir: catalog, cmds: [npm run build] }
+  gen: { desc: Generate into generated/local, cmds: [uv run catalog-gen/catalog_gen.py build --catalog catalog --out generated/local] }
+  gen:check: { desc: Fail on drift, cmds: [uv run catalog-gen/catalog_gen.py check --catalog catalog --out generated/local] }
+  gen:explain: { desc: "task gen:explain -- rules/orders-fan-out.json", cmds: [uv run catalog-gen/catalog_gen.py explain --catalog catalog --out generated/local {{.CLI_ARGS}}] }
+  checks: { desc: Run the catalog checks, cmds: [uv run checks/run_checks.py --catalog catalog] }
+  spectral: { desc: Lint every OpenAPI in the catalog, cmds: ["npx -y @stoplight/spectral-cli lint -r checks/spectral.yaml 'catalog/services/**/openapi.y*ml'"] }
+  odcs:lint: { desc: Lint generated ODCS contracts, cmds: ["for f in generated/local/contracts/*.yaml; do uvx datacontract-cli lint $f || exit 1; done"] }
+  test: { desc: Behavioural tests, cmds: [uv run --with pytest pytest -q tests] }
+  all: { cmds: [{task: gen}, {task: checks}, {task: spectral}, {task: test}, {task: gen:check}] }

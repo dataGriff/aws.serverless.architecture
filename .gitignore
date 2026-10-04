@@ -1,0 +1,16 @@
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+# python / tooling
+__pycache__/
+.pytest_cache/
+.venv/
+.build/
+# spike runtime artefacts
+spikes/B-localstack-buses-end-to-end/.queues.json
+spikes/A-catalog-source-of-truth/catalog/node_modules/
+spikes/A-catalog-source-of-truth/catalog/.eventcatalog-core/
+spikes/A-catalog-source-of-truth/catalog/dist/
+spikes/A-catalog-source-of-truth/generated/

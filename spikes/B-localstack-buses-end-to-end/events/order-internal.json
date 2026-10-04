@@ -1,0 +1,8 @@
+[
+  {
+    "EventBusName": "orders-bus",
+    "Source": "orders.order-service",
+    "DetailType": "order.aggregate.updated",
+    "Detail": "{\"eventId\": \"22222222-2222-2222-2222-222222222222\", \"occurredAt\": \"2026-10-04T15:00:00Z\", \"aggregateId\": \"order-123\", \"aggregateVersion\": 2, \"row\": {\"internal\": true}}"
+  }
+]

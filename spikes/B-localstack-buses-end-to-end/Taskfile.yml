@@ -1,0 +1,45 @@
+version: "3"
+env:
+  AWS_ENDPOINT_URL: http://localhost:4566
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: eu-west-2
+vars:
+  TF_DIR: terraform/envs/local
+tasks:
+  default: { cmds: [task --list] }
+  up:
+    desc: Start LocalStack and wait for it
+    cmds:
+      - docker compose up -d
+      - until curl -sf $AWS_ENDPOINT_URL/_localstack/health >/dev/null; do sleep 1; done; echo ready
+  down: { desc: Stop LocalStack, wipe state, cmds: [docker compose down -v, rm -f .queues.json] }
+  init: { dir: "{{.TF_DIR}}", cmds: [terraform init -input=false] }
+  apply:
+    desc: "Apply (vars: FAN_OUT=anything-but|enumerated, TRANSFORMER=true|false)"
+    dir: "{{.TF_DIR}}"
+    deps: [init]
+    cmds:
+      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}}
+      - rm -f ../../../.queues.json
+  test:
+    desc: Run the spike tests (excludes the transformer test unless TRANSFORMER=true)
+    cmds:
+      - uv run --with boto3 --with pytest pytest -q tests -m "not transformer" {{.CLI_ARGS}}
+  test-transformer:
+    desc: Apply with the transformer rule and run only that test
+    cmds:
+      - task: apply
+        vars: { TRANSFORMER: "true" }
+      - uv run --with boto3 --with pytest pytest -q tests -m transformer
+  send:
+    desc: "Put a sample event: task send -- events/order-placed.json"
+    cmds: [aws events put-events --entries file://{{.CLI_ARGS}}]
+  dlq:
+    desc: Peek at the broken-target DLQ
+    cmds:
+      - aws sqs receive-message --queue-url $(cd {{.TF_DIR}} && terraform output -json queues | python3 -c 'import json,sys;print(json.load(sys.stdin)["broken_target_dlq"])') --max-number-of-messages 10 --message-attribute-names All
+  sizes: { desc: Pattern sizes in bytes, dir: "{{.TF_DIR}}", cmds: [terraform output -json pattern_sizes] }
+  reset:
+    desc: down → up → apply → test
+    cmds: [{task: down}, {task: up}, {task: apply}, {task: test}]

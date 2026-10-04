@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/x-pii.metaschema.json",
+  "title": "Every property declares x-pii; special is forbidden on events",
+  "type": "object",
+  "properties": {
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["x-pii"],
+        "properties": {
+          "x-pii": { "enum": ["none", "indirect", "direct", "special"] },
+          "encryption": { "enum": ["subject-key"] },
+          "decryptors": { "type": "array", "items": { "type": "string" } }
+        },
+        "allOf": [
+          { "if": { "properties": { "x-pii": { "const": "direct" } } },
+            "then": { "required": ["encryption", "decryptors"] } },
+          { "not": { "properties": { "x-pii": { "const": "special" } } } }
+        ]
+      }
+    }
+  },
+  "required": ["properties"]
+}

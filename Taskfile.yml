@@ -1,0 +1,12 @@
+version: "3"
+includes:
+  a: { taskfile: spikes/A-catalog-source-of-truth/Taskfile.yml, dir: spikes/A-catalog-source-of-truth }
+  b: { taskfile: spikes/B-localstack-buses-end-to-end/Taskfile.yml, dir: spikes/B-localstack-buses-end-to-end }
+tasks:
+  default: { cmds: [task --list-all] }
+  doctor:
+    desc: Check the toolchain before starting
+    cmds:
+      - mise current
+      - docker info >/dev/null 2>&1 && echo "docker ok" || echo "docker NOT running"
+      - node --version && uv --version && terraform version | head -1 && aws --version
