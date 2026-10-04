@@ -37,7 +37,7 @@ tasks:
     dir: "{{.TF_DIR}}"
     deps: [init]
     cmds:
-      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}}
+      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
       - rm -f ../../../.queues.json ../../../.dlqs.json
   test:
     desc: Run the spike tests (excludes the transformer test unless TRANSFORMER=true)
@@ -70,6 +70,12 @@ tasks:
     desc: "DuckDB over the central archive in S3: task query  (or task query -- \"SELECT ... FROM archive\")"
     cmds:
       - uv run --with boto3 --with duckdb python3 tests/query_archive.py {{.CLI_ARGS}}
+  probe-firehose:
+    desc: "Outside Spike B's boundary: apply a Firehose stream on central (validation Lambda, dynamic partitioning, processing-failed/) and report what LocalStack honours"
+    cmds:
+      - task: apply
+        vars: { FIREHOSE: "true" }
+      - uv run --with boto3 --with duckdb python3 tests/probe_firehose.py
   depths:
     desc: Depth of every queue (probes, consumers, DLQs)
     cmds:

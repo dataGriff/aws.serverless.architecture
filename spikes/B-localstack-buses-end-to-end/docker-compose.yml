@@ -6,7 +6,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=events,sqs,s3,iam,lambda,sts,logs
+      - SERVICES=events,sqs,s3,iam,lambda,sts,logs,firehose
       - DEBUG=0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

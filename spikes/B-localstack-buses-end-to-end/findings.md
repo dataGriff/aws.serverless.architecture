@@ -55,7 +55,7 @@ task -d spikes/B-localstack-buses-end-to-end up LICENSED=true ENFORCE_IAM=0   # 
 
 ## Stretch: archive — Lambda on central → S3, read with DuckDB
 
-A rule on `central-bus` matching everything (`patterns/probe-all.json`) invokes a 10-line Lambda (`terraform/modules/bus-s3-archiver/src/handler.py`) that writes each event as one JSON object to `s3://central-archive/raw/source=<source>/detail_type=<detail-type>/<id>.json`. It is the stretch the spike prompt names; Firehose is explicitly out of scope for Spike B. LocalStack does ship Firehose in every plan (S3 delivery works), but the ADR-009 features the design depends on — dynamic partitioning on `source`/`detail-type`, the Lambda validation transform and the `processing-failed/` prefix — are undocumented for LocalStack and untested here. Step 1 should probe those three before trusting the archive locally. This is what "what flowed" looks like after a `task test`:
+A rule on `central-bus` matching everything (`patterns/probe-all.json`) invokes a 10-line Lambda (`terraform/modules/bus-s3-archiver/src/handler.py`) that writes each event as one JSON object to `s3://central-archive/raw/source=<source>/detail_type=<detail-type>/<id>.json`. It is the stretch the spike prompt names; Firehose is explicitly out of scope for Spike B. LocalStack does ship Firehose in every plan, but the "Firehose probe" section below shows it does not honour the ADR-009 features the design depends on, so this shim is what platform-local will need. This is what "what flowed" looks like after a `task test`:
 
 ```
 $ task query
@@ -79,6 +79,23 @@ $ task query
 | the at-least-once duplicate from `test_duplicate_put_is_delivered_twice` is two objects in the archive with the same `correlationId` and `time` and different `id`s | `task query -- "SELECT detail.correlationId, time FROM archive ORDER BY time DESC LIMIT 5"` shows the pair; this is the row ADR-011's read-time `QUALIFY row_number() OVER (PARTITION BY event_id)` exists to collapse |
 
 What this does not prove: anything about Firehose (buffering, dynamic partitioning, the validation transform, `processing-failed/`; ADR-009), Object Lock or CMKs (ADR-010), or compaction (ADR-011). It proves the *shape* the data layer reads — one object per event, Hive prefixes, DuckDB over S3 — works end to end on LocalStack, and gives Spike C and Step 1 a working `duck()` helper and `task query` to start from.
+
+## Firehose probe (outside Spike B's boundary; answers the ADR-009 open question)
+
+`task probe-firehose` applies a Firehose stream on `central-bus` in ADR-009's shape — EventBridge rule → Firehose (role) → S3 with a validation Lambda (`ProcessingConfiguration`), dynamic partitioning on `source` / `detail-type` from the Lambda's partition keys, `ErrorOutputPrefix = processing-failed/…`, 60 s / 64 MiB buffers — then puts one valid event and one carrying `customerEmail` in clear. Same result on Community 4.14.0 and licensed 2026.9.0.
+
+| ADR-009 mechanism | LocalStack | Evidence |
+| --- | --- | --- |
+| EventBridge → Firehose target with a role | **works** | objects appear in `central-bronze` ~3 s after `PutEvents`; `central-bronze` DLQ empty |
+| buffering (60 s interval) | **ignored** — one S3 object per record, written immediately | `objects written within 150 s: 2 (first seen after ~3 s)` |
+| Lambda transform is invoked | yes, but **with a non-AWS payload**: `{"records": [{"data": "<b64>"}]}` — no `recordId`, `invocationId`, `deliveryStreamArn` or `approximateArrivalTimestamp` | `INVOCATION SHAPE:` line in `/aws/lambda/central-bronze-validator`; a contract-conformant Lambda dies with `KeyError: 'recordId'` |
+| when the transform Lambda errors | Firehose **writes an empty object** per record under the normal prefix; nothing is retried, nothing goes to `processing-failed/` | first run: two 0-byte objects |
+| `Ok` record with transformed `data` | **honoured** — the S3 body is the Lambda's output | body has `json.dumps` spacing, not the compact original |
+| `ProcessingFailed` record | **not quarantined** — written raw under the normal `bronze/` prefix, not `processing-failed/` | second object is the untouched PII-in-clear event; `error_output_prefix` never used |
+| dynamic partitioning (`!{partitionKeyFromLambda:…}`) | **not evaluated** — the placeholder text is the S3 key, with Firehose's `YYYY/MM/DD/HH/` appended | key: `bronze/source=!{partitionKeyFromLambda:source}/detail_type=!{partitionKeyFromLambda:detail_type}/2026/10/04/16/central-bronze-…` |
+| DuckDB over the result | reads it, but `hive_partitioning=true` yields the literal placeholder as the partition value | `[('!{partitionKeyFromLambda:source}', '!{partitionKeyFromLambda:detail_type}', 2)]` |
+
+**Consequence.** LocalStack's Firehose is a pass-through to S3: fine for "did the stream get the record", useless for the three things ADR-009 makes load-bearing — validation-driven quarantine, PII-in-clear detection and the bronze layout. For platform-local and domain-local tests, the bronze archive should be produced by the Lambda shim from the stretch (same layout, same `duck()` view) with the validation logic in it; real Firehose behaviour (buffering, partitioning, `processing-failed/`, the exact transform contract) is **sandbox-only** and belongs in the nightly L2 run. Write the validation Lambda once and use it in both: Firehose calls it in AWS, the shim imports it locally. Flag for LocalStack: the transform payload shape is a fidelity bug worth reporting.
 
 ## Second pass: licensed image (LocalStack 2026.9.0, `task up LICENSED=true`)
 
@@ -124,7 +141,7 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 
 1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven) and keep the fan-out *pattern* on central (proven), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). Run `pytest -m sandbox` once against the real topology before day one to see the drop with your own eyes; it is an hour.
 2. **ADR-006 — drop "input transformer on the forward rule" from `revisit_when`.** The only viable path is a distinct public event with `derivedFrom`; say so.
-3. **ADR-008 / testing.md — mark replay, DLQ delivery, resource policies and IAM roles `sandbox-only`.** platform-local must stub them honestly (an `expect_dlq` that reads LocalStack's `TargetDeliveryFailure` log line is the most it can do) and the nightly sandbox run becomes a release gate for those mechanisms, not a nice-to-have.
+3. **ADR-008 / ADR-009 / testing.md — mark replay, DLQ delivery, resource policies, IAM roles and every Firehose behaviour beyond "record reaches S3" `sandbox-only`.** platform-local's bronze comes from the Lambda shim sharing the real validation code. platform-local must stub them honestly (an `expect_dlq` that reads LocalStack's `TargetDeliveryFailure` log line is the most it can do) and the nightly sandbox run becomes a release gate for those mechanisms, not a nice-to-have.
 4. **Day one toolchain — use the licensed image with `ENFORCE_IAM=1` for platform-local and CI** (the token is already available on this machine; the Taskfile shows the pattern). It is the only way IAM roles and resource policies fail locally, and it is the only line receiving fixes. Keep `4.14.0` as the documented no-licence fallback and note it cannot enforce IAM. Archives need `ENFORCE_IAM=0` until LocalStack fixes its internal archive rule.
 5. **Add a named trigger to ADR-001 and ADR-008: evaluate the EventBridge Custom Event Bus** (one shared bus, per-account subscribers, retention, FIFO, dedup, replay) in the sandbox before Step 4 commits real accounts. If it holds up, it supersedes fan-out-all, the native archive and part of the compactor at once; the catalog generator would emit subscribers instead of rules. Do not build on it on day one: ten days old, no local emulation.
 6. **Spike C** can proceed on LocalStack for everything pattern-shaped (forward, fan-out, consumer rules, own-event exclusion, pattern sizes); it must not claim end-to-end delivery across two hops as proven.
@@ -134,4 +151,4 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 - Does the Classic bus-to-bus hop keep `time` on AWS, or re-stamp it like the Custom Event Bus does? (affects bronze partitioning by event time vs bus time)
 - Is `LOOP_DETECTED` on the Custom Event Bus reliable enough to retire the pattern-based guard?
 - Does the Terraform AWS provider cover `AWS::EventsV2::*` yet, and does LocalStack Pro?
-- Does LocalStack's Firehose honour dynamic partitioning, `ProcessingConfiguration` (the validation Lambda) and `ErrorOutputPrefix`? Undocumented; a one-hour probe before Step 1 decides whether platform-local can use real Firehose or needs this Lambda shim.
+- ~~Does LocalStack's Firehose honour dynamic partitioning, `ProcessingConfiguration` and `ErrorOutputPrefix`?~~ Answered above: no, no and no. platform-local needs the Lambda shim.

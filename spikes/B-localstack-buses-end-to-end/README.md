@@ -11,6 +11,7 @@ task apply            # 3 buses · forward + fan-out rules · consumer rules · 
 task test             # 15 tests; names are the contract (14 pass, 1 xfail on LocalStack)
 task probe            # pattern operators, archive/replay, ordering — prints a table
 task query            # DuckDB over the S3 archive written by the central archiver Lambda (stretch)
+task probe-firehose   # outside the spike boundary: does LocalStack honour ADR-009's Firehose features? (it does not — see findings)
 task test-transformer # re-applies with the transformer rule and runs that one test (xfail on LocalStack)
 task send -- events/order-placed.json && task dlq
 task depths           # every queue's depth, DLQs included

@@ -18,10 +18,18 @@ provider "aws" {
     sqs    = var.localstack_endpoint
     iam    = var.localstack_endpoint
     sts    = var.localstack_endpoint
-    s3     = var.localstack_endpoint
-    lambda = var.localstack_endpoint
-    logs   = var.localstack_endpoint
+    s3       = var.localstack_endpoint
+    lambda   = var.localstack_endpoint
+    logs     = var.localstack_endpoint
+    firehose = var.localstack_endpoint
   }
+}
+
+# Firehose is outside Spike B's boundary. This flag exists only for `task probe-firehose`, which checks whether
+# LocalStack honours the three ADR-009 features: validation Lambda, dynamic partitioning, processing-failed/.
+variable "enable_firehose_probe" {
+  type    = bool
+  default = false
 }
 
 variable "localstack_endpoint" {
@@ -141,6 +149,17 @@ module "central_archive" {
   event_pattern = local.pattern["probe-all"]
   tags          = local.tags
 }
+
+module "firehose_probe" {
+  count         = var.enable_firehose_probe ? 1 : 0
+  source        = "../../modules/bus-firehose-archive"
+  name          = "central-bronze"
+  bus_name      = module.central_bus.name
+  event_pattern = local.pattern["probe-all"]
+  tags          = local.tags
+}
+
+output "firehose_bucket" { value = var.enable_firehose_probe ? module.firehose_probe[0].bucket : "" }
 
 # ---- Optional: input transformer on a forward rule (verify support for bus targets)
 module "transformer_forward" {
