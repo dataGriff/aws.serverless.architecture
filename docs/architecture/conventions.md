@@ -4,7 +4,7 @@ Constant across every bus, bucket and API; the Spectral ruleset and catalog CI e
 
 ## Event routing fields
 
-- `source` = `{domain}.{service}` — the loop guard, the fan-out exclusion and the Firehose routing depend on it
+- `source` = `{domain}.{service}` — the public-forward rule, every subscriber filter and the Firehose routing depend on it
 - `detail-type` = `{EventName}.v{n}` — version in the name; breaking change = new name = new silver directory; dual-publish until `sunset`
 - Rules match on `source` + `detail-type` only, never on payload; the generator splits a rule before it reaches the 4KB pattern limit
 

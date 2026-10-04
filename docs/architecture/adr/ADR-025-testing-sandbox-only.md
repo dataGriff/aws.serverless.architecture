@@ -1,9 +1,10 @@
 ---
 id: ADR-025
 title: "Testing — what LocalStack proves, what only the sandbox can"
-status: proposed
+status: accepted
 supersedes: ADR-019
 date: 2026-10-04
+accepted: 2026-10-04
 evidence:
   - spikes/B-localstack-buses-end-to-end/findings.md
   - spikes/D-custom-event-bus/findings.md
@@ -50,7 +51,7 @@ No shared integration environment; no test depends on another domain's code; `pl
 
 - Two renderings of `receives[]` (Classic rule locally, subscriber on AWS) can drift; the generator snapshot tests both from one input.
 - A per-branch sandbox stack needs credentials in CI and a teardown that always runs; cost is negligible, blast radius is the sandbox account.
-- Licensed LocalStack is a paid dependency for every domain repo's L1.
+- Licensed LocalStack is a paid dependency for every domain repo's L1 — accepted 2026-10-04; the token is supplied from the developer's or CI's environment, never from the repo (`docker-compose.licensed.yml` in Spike B shows the pattern).
 
 ## How to change this
 

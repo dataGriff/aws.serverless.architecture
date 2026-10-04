@@ -1,14 +1,15 @@
 ---
 id: ADR-021
 title: "Transport & routing — Classic domain buses, Custom central bus"
-status: proposed
+status: accepted
 supersedes: ADR-001
 date: 2026-10-04
+accepted: 2026-10-04
 evidence:
   - spikes/B-localstack-buses-end-to-end/findings.md
   - spikes/D-custom-event-bus/findings.md
 revisit_when:
-  - "eu-west-2 gains an `eventsv2` endpoint → move central to London; until then central runs in eu-west-1 only after a sandbox check of cross-region subscriber delivery"
+  - "eu-west-2 gains an `eventsv2` endpoint and residency or latency requires London → move the platform region (the bus is rebuilt from IaC; bronze is replicated)"
   - "A domain needs retention or FIFO for its *internal* events → that domain's bus becomes a Custom Event Bus too (and loses LocalStack for it)"
   - "Events with `audience: restricted` → per-subscription approval recorded in the catalog; the subscriber is still created by the consumer, the generator refuses it without the approval"
   - "Proven stream volume → Kinesis for that stream only"
@@ -131,7 +132,7 @@ sequenceDiagram
 | loop guard | `anything-but` own prefix in the fan-out pattern | none needed; plus the hard rule above |
 | cross-account | bus resource policies | RAM share of the bus; subscriber role in the consumer's account |
 | ordering / dedup | FIFO SQS target as a trigger; consumer dedupe | `EventGroupId` / `DeduplicationId` set by the relay |
-| region | eu-west-2 | **gate**: no `eventsv2` endpoint in eu-west-2 on 2026-10-04 (eu-west-1, eu-central-1, eu-north-1, us-east-1 have one) |
+| region | eu-west-2 (London) | **eu-west-1 (Ireland)** for the whole platform — decided 2026-10-04 because the Custom Event Bus has no London endpoint (eu-west-1, eu-central-1, eu-north-1, us-east-1 have one). Domain accounts deploy in eu-west-1 too; no cross-region hop. ADR-020 updated. |
 
 ## What does not change
 
@@ -142,14 +143,14 @@ Domain buses, the outbox relay module, the public-forward rule and its pattern, 
 - **No local emulation of the central bus.** LocalStack has nothing for `eventsv2`. Domain-local tests use a Classic stub central whose rules target the consumer queues directly, which has the same shape as a subscriber; everything about the real central bus is proven in the sandbox (ADR-025).
 - **Per-GB pricing**: $0.18/GB published, $0.05/GB delivered, $0.08/GB-month retained beyond one day, against $1 per million Classic events. Content-based dedup is billed separately; the relay uses `DeduplicationId`.
 - **Subscriber lifecycle is sharper than rules.** One create/delete at a time per bus (the generator's apply serialises them); six create-only properties, so a target change is add-then-remove or a `POINT_IN_TIME` restart; default retry is 5 attempts in 300 s, so the generator always sets 185 / 86 400.
-- **Region.** Until London has the endpoint, central cannot be in eu-west-2. Running central in eu-west-1 with domains in eu-west-2 is possible only if cross-region subscriber delivery is confirmed in the sandbox and residency is accepted.
+- **Region.** The platform and every domain account run in eu-west-1 rather than London. Data stays in the EU; UK-specific residency, if ever required, is the trigger above.
 - **Tooling.** Terraform via `hashicorp/awscc` ≥ 1.104.0 (`awscc_eventsv2_event_bus`, `awscc_eventsv2_subscriber`, `_resource_policy`); `hashicorp/aws` has no resources yet. boto3 service name `eventbridgev2`.
 
 ## Implementation plan
 
 1. Generator (Step 2): `receives[]` → `awscc_eventsv2_subscriber` in the consumer's account with filter, role, DLQ, retry policy, `MaxBatchSize=1` for Lambda targets; `sends[]` public → publish grant on the shared bus; relay sets `EventGroupId` / `DeduplicationId`. Patterns unchanged.
 2. `platform-local` (Step 3): stub central stays Classic; "subscribers" are emitted as Classic rules on the stub central targeting the consumer queue. Same catalog input, two renderers.
-3. Step 4 (real accounts) is gated on the region decision above; the first real central is the Custom bus in the sandbox account, shared by RAM to the first domain account — the one assertion Spike D could not make with a single account.
+3. Step 4 (real accounts): the first real central is the Custom bus in the platform nonprod account in eu-west-1, shared by RAM to the first domain account — the one assertion Spike D could not make with a single account.
 4. Spike C runs against the Classic stub and must not claim two-hop delivery.
 
 ## How to change this

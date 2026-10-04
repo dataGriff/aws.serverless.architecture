@@ -1,9 +1,10 @@
 ---
 id: ADR-024
 title: "Archive — Firehose as a subscriber on central; a Lambda shim locally"
-status: proposed
+status: accepted
 supersedes: ADR-009
 date: 2026-10-04
+accepted: 2026-10-04
 evidence:
   - spikes/B-localstack-buses-end-to-end/findings.md
 revisit_when:

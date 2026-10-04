@@ -5,8 +5,9 @@ Written down so nobody rediscovers them. Each is a consequence of a row in `deci
 ## Delivery semantics
 
 - No ordering and no exactly-once anywhere. Every consumer handles out-of-order and duplicates; silver reconstructs order via `aggregateVersion`.
-- Fan-out-all means every domain bus receives every public event; cost is N× deliveries and no per-event access control until `audience: restricted` is used.
-- London's default EventBridge quotas are lower than Virginia's; each event counts twice plus one invocation per domain. Checked on day one, raised before step 4.
+- The Custom Event Bus is billed per GB published, delivered and retained rather than per event ($0.18 / $0.05 / $0.08 per GB-month), and each consumer's subscriber is a delivery; access control is per bus (RAM), so per-event restriction is the generator refusing a subscriber without producer approval (`audience: restricted`).
+- eu-west-1 was chosen over London because the Custom Event Bus has no eu-west-2 endpoint; EventBridge quotas (Classic and Custom) in eu-west-1 are checked on day one and raised before step 4.
+- One subscriber create/delete at a time per bus, and six create-only subscriber properties: every subscriber change is serialised and a target change is add-then-remove or a point-in-time restart.
 
 ## Freshness & analytics
 
@@ -17,7 +18,7 @@ Written down so nobody rediscovers them. Each is a consequence of a row in `deci
 ## Testing & environments
 
 - Automated tests never see two domains together; behavioural mismatches surface in `test` UAT, production smokes and canaries, not CI.
-- LocalStack is a proxy; pattern matching, transformers and cross-account behaviour differ. The nightly sandbox run is the safety net.
+- LocalStack is a proxy and returns false positives for bus-to-bus hop limits, DLQ records, IAM, replay and Firehose behaviour, and does not emulate the Custom Event Bus at all; those are sandbox-only (ADR-025) and the licensed image with `ENFORCE_IAM=1` is a paid dependency of every domain repo.
 - Prism proves shape, not behaviour; Schemathesis proves conformance, not correctness.
 
 ## PII controls

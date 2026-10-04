@@ -5,7 +5,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 ## Day one · Foundations — needed before the first event or endpoint has any value
 ### Decide & write down (ADRs)
 
-- EventBridge-first, fan-out-all routing, domain-owned buses, services and APIs; central keeps only a native archive for replay
+- EventBridge-first in eu-west-1: Classic domain buses, a Custom Event Bus as central with 30-day retention, consumer-owned subscribers (no fan-out), domain-owned services and APIs (ADR-021, ADR-023)
 - Firehose archive with schema validation; buckets in the platform account, one pair per domain, CMK per domain, Object Lock on bronze; internal archive per domain by default
 - REST API Gateway with validation; WAF on anything externally reachable from day one; no central gateway; no Schema Registry
 - **PII is classified, not banned**: `indirect` in clear, `direct` encrypted per subject via the platform's subject-key service, `special` never; erasure = key deletion
@@ -27,7 +27,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 - EventCatalog repo: one domain, one service, one public + one internal event, one OpenAPI with one command and one query, channels, example payloads, CODEOWNERS per domain path
 - Terraform module library, tagged: `event-bus`, `bus-forward-rule`, `firehose-archive` (with validation transform), `compactor`, `domain-buckets`, `rest-api` (from OpenAPI), `outbox-relay` (DynamoDB Streams → Pipes → PutEvents), `idempotency-store`, `saga`, `subject-keys` (per-subject data keys + the encrypt/decrypt library), `alarms`, `platform-local` stub
 - mise (terraform, task, uv, awscli, node), Taskfile, LocalStack compose, pytest + DuckDB, Spectral, oasdiff, Prism, Schemathesis, datacontract-cli — identical locally and in CI; a real AWS sandbox account for the nightly L2 run
-- Pilot domain (orders) with an outbox in its service and one real endpoint; platform + first domain accounts (nonprod/prod); platform-owned JWT issuer; London EventBridge quotas checked and raise requests filed
+- Pilot domain (orders) with an outbox in its service and one real endpoint; platform + first domain accounts (nonprod/prod) in eu-west-1; platform-owned JWT issuer; EventBridge Classic and Custom Event Bus quotas in eu-west-1 checked and raise requests filed
 
 **Exit:** a new engineer clones two repos, runs `task up && task apply && task test`, calls the mock of an API that isn't built yet, and reads every convention and every accepted trade-off in under an hour.
 
@@ -35,7 +35,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- `orders-bus` and `central-bus`; public-forward rule; the fan-out rule back (everything except `orders.`); a consumer rule on `orders-bus` from `receives[]`
+- `orders-bus` (Classic) and a Classic stub `central`; public-forward rule; the `receives[]` entry rendered as a rule *on the stub central* targeting orders' consumer queue — the subscriber's shape, one hop, no fan-out
 - Archive: Firehose (or a Lambda shim where LocalStack lacks the feature) with the validation transform into `orders-events-bronze`; compactor at T−2h with daily re-compaction → `orders-events-silver`; DuckDB views with read-time dedupe
 - Orders REST API from the catalog OpenAPI with gateway validation; one command (`POST /orders` → outbox relay module) and one query; Prism serving the same spec; idempotency-store module behind the command
 - One `direct` field (customer email on `OrderPlaced.v1`) encrypted end to end through the subject-keys module; a consumer role with a decrypt grant and one without
@@ -43,7 +43,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Prove
 
-- Public event reaches central and lands in the orders bucket with shape intact; internal event stays on the domain bus; the fan-out never echoes a domain's own event back
+- Public event reaches central and lands in the orders bucket with shape intact; internal event stays on the domain bus; nothing is ever delivered back to a domain bus from central
 - A non-conformant payload, or a `direct` field sent in clear, lands under `processing-failed/` and raises the alarm; a duplicate delivered across an hour boundary yields one silver row; the email is ciphertext in bronze and absent from silver's `d_*` columns
 - Schemathesis passes; the gateway rejects an invalid body; a command produces the event; Prism answers the query from spec examples
 
@@ -53,7 +53,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- Generator emits, per account and per environment: forward/fan-out/consumer rule patterns, Firehose streams with their validation schema bundles, `schemas/*.json` for the compactor, bucket definitions with lifecycle and CMKs, per-domain reader roles, **alarms and dashboards** for every rule, DLQ, stream, compactor and API
+- Generator emits, per account and per environment: forward rules, subscribers on central (filter, role, DLQ, retry 185/24h, `MaxBatchSize=1` for Lambda) for the real accounts and their Classic-rule equivalents for `platform-local`, Firehose subscribers with their validation schema bundles, `schemas/*.json` for the compactor, bucket definitions with lifecycle and CMKs, per-domain reader roles, **alarms and dashboards** for every rule, DLQ, stream, compactor and API
 - From each `openapi.yaml`: command/query pages, the REST API body with integrations and request validators, authorizer config, typed clients per version, Prism config, Schemathesis job, Sunset headers
 - From each public event version + its overlay: the ODCS contract, and from the contract the Parquet schema, view DDL, quality checks and reader grants; the hand-written step-1 contract is replaced by the generated one and must be byte-identical
 - Output under `generated/`, read via `jsondecode(file(...))`; generator semver pinned per account; a **deploy-order manifest** per catalog change (schemas → producer rules → central rules → consumer rules → clients)
@@ -71,8 +71,8 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- `payments`: own bus, bucket pair in the platform env, fan-out both ways, loop test across three buses; its API with one command; **the saga module driving authorise → capture → settle** inside payments, speaking only contracts; WAF on the webhook route
-- Extract `platform-local` as a versioned module: stub central-bus + fan-out + archive + compactor + per-domain buckets
+- `payments`: own bus, bucket pair in the platform env, subscribers both ways on the stub central, a test that nothing reaches a domain bus from central; its API with one command; **the saga module driving authorise → capture → settle** inside payments, speaking only contracts; WAF on the webhook route
+- Extract `platform-local` as a versioned module: Classic stub central + subscriber-shaped consumer rules + archive shim (ADR-024) + compactor + per-domain buckets; pinned licensed LocalStack image with `ENFORCE_IAM=1`
 - `platform_testing` package: `assert_published`, `assert_not_published`, `assert_quarantined`, `duck()`, `prism(service, version)`, `replay(event)`, fixtures for LocalStack / Terraform / outbox drain
 - Payments calls the orders API through the generated client; its L1 tests run against the Prism mock of orders pinned to a catalog version; the nightly L2 run moves onto the real sandbox account
 
@@ -89,16 +89,16 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- Platform + one account per domain, nonprod and prod tiers; bus policies from the catalog; central rules applied by the platform pipeline in the manifest's order
+- Platform + one account per domain, nonprod and prod tiers, all eu-west-1; the Custom Event Bus central shared by RAM from the catalog; subscribers applied by each domain's pipeline in the manifest's order, one at a time per bus
 - Bucket pairs with CMKs, Object Lock on bronze, versioning + CRR in prod; grants to each domain's own account and to its reader role; CloudTrail data events on
 - DNS delegated per domain; REST APIs deployed from generated bodies with the platform issuer; WAF attached where the catalog marks an API external
-- Native archive enabled on central; a replay runbook; post-deploy smokes (`SmokeTest.v1` event, `GET /v1/health`); catalog tag pins per environment with promotion by PR
+- 30-day retention on central; a replay runbook (`POINT_IN_TIME` subscriber, start ≥ 5 min back, `EndPoint`, own target); post-deploy smokes (`SmokeTest.v1` event, `GET /v1/health`); catalog tag pins per environment with promotion by PR
 
 ### Prove
 
 - Both smokes green in every account on every deploy; a new event version reaches dev, then test, then prod only by pin bumps
 - A domain cannot read another domain's bucket pair; a reader role cannot write; an unauthenticated call is rejected at the gateway; a malformed webhook is dropped by WAF before the handler
-- A replay from the native archive into `test` re-drives a consumer without side effects
+- A point-in-time replay subscriber in `test` re-drives a consumer with `replay: true` and no side effects; RAM-shared central delivers to a subscriber in another account (the one thing Spike D could not prove)
 
 **Exit:** the things LocalStack couldn't prove — IAM, resource policies, DNS, encryption, cross-account delivery, real auth, replay — are proven continuously by smokes and drills.
 

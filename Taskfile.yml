@@ -2,6 +2,7 @@ version: "3"
 includes:
   a: { taskfile: spikes/A-catalog-source-of-truth/Taskfile.yml, dir: spikes/A-catalog-source-of-truth }
   b: { taskfile: spikes/B-localstack-buses-end-to-end/Taskfile.yml, dir: spikes/B-localstack-buses-end-to-end }
+  d: { taskfile: spikes/D-custom-event-bus/Taskfile.yml, dir: spikes/D-custom-event-bus }
 tasks:
   default: { cmds: [task --list-all] }
   doctor:
@@ -10,3 +11,11 @@ tasks:
       - mise current
       - docker info >/dev/null 2>&1 && echo "docker ok" || echo "docker NOT running"
       - node --version && uv --version && terraform version | head -1 && aws --version
+  prompts:
+    desc: Install docs/architecture/prompts/*.md as the /arch:* commands (the prompt file is the source)
+    cmds:
+      - python3 docs/architecture/prompts/install-commands.py
+  prompts:check:
+    desc: Fail if .claude/commands/arch is out of date with the prompts (for CI and pre-commit)
+    cmds:
+      - python3 docs/architecture/prompts/install-commands.py --check

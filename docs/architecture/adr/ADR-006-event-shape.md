@@ -1,8 +1,8 @@
 ---
 id: ADR-006
 title: "Event shape"
-status: accepted
-superseded_by: "ADR-022 (proposed) — the only revisit path (input transformer on the forward rule) is unavailable on bus targets"
+status: superseded
+superseded_by: "ADR-022 — the only revisit path (input transformer on the forward rule) is unavailable on bus targets"
 date: 2026-10-04
 reviewed: unchanged
 revisit_when:

@@ -1,9 +1,10 @@
 ---
 id: ADR-023
 title: "Replay — bus retention and point-in-time subscribers"
-status: proposed
+status: accepted
 supersedes: ADR-008
 date: 2026-10-04
+accepted: 2026-10-04
 evidence:
   - spikes/D-custom-event-bus/findings.md
   - spikes/B-localstack-buses-end-to-end/findings.md

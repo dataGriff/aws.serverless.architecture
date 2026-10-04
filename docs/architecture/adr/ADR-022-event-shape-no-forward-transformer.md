@@ -1,9 +1,10 @@
 ---
 id: ADR-022
 title: "Event shape — forwarded unchanged; transforms only on the consumer's subscriber"
-status: proposed
+status: accepted
 supersedes: ADR-006
 date: 2026-10-04
+accepted: 2026-10-04
 evidence:
   - spikes/B-localstack-buses-end-to-end/findings.md
   - spikes/D-custom-event-bus/findings.md
