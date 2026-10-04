@@ -1,12 +1,12 @@
 # PII in events — classified, not banned
 
-PII will enter events; the platform classifies and controls it rather than pretending otherwise. The classification lives on every schema field as `x-pii` and drives generated encryption, quarantine, silver columns, log scrubbing, retention and the ROPA.
+PII will enter events; the platform classifies and controls it rather than pretending otherwise. The classification lives on every JSON Schema property as `x-pii` — in event schemas and shared `schemas/` alike, never in frontmatter — and drives generated encryption, quarantine, silver columns, log scrubbing, retention and the ROPA. In the generated validation bundle every `direct` field of a public event is **schema-typed as the ciphertext envelope**, so Firehose on AWS and the Lambda shim locally quarantine clear text (`processing-failed/reason=pii-in-clear/`) by schema alone, without PII-aware code.
 
 | Class | Examples | In a public event | In an internal event | Bronze / silver | Erasure |
 | --- | --- | --- | --- | --- | --- |
 | `none` | order total, status, timestamps | clear | clear | as published / typed `d_*` column | n/a |
 | `indirect` | `customerId`, `accountRef`, device id, postcode district | clear; needed for correlation and routing | clear | as published / typed column, retention cap per class | unlinkable once the owning domain deletes the subject record; silver keeps the orphaned id |
-| `direct` | name, email, phone, address, date of birth, account number, IBAN | ciphertext only — producer encrypts with the subject's data key; `audience: restricted` by default; consumers listed as `decryptors` fetch the key | clear permitted; every copy capped at 30 days, logs scrubbed | ciphertext inside `detail`, never a `d_*` column; clear text in a `direct` field is quarantined by Firehose | delete the subject key → every copy anywhere is unreadable, including Object-Locked bronze and replays |
+| `direct` | name, email, phone, address, date of birth, account number, IBAN | ciphertext only — producer encrypts with the subject's data key; `audience: restricted` by default; consumers listed as `decryptors` fetch the key | clear permitted; every copy capped at 30 days, logs scrubbed | ciphertext inside `detail`, never a `d_*` column; clear text in a `direct` field is quarantined by the validation bundle (Firehose on AWS, the shim locally) | delete the subject key → every copy anywhere is unreadable, including Object-Locked bronze and replays |
 | `special` | health, biometrics, ethnicity, religion, sexual orientation, criminal data, PCI PAN/CVV | never — reference by id, fetch via the owning API under its own controls | never | never present | handled by the system of record, not the event platform |
 
 ## Subject-key service (platform module)

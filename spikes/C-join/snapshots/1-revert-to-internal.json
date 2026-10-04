@@ -5,44 +5,14 @@
     ],
     "address": "module.central_archive.aws_lambda_function.fn",
     "changed": [
-      "environment",
       "source_code_hash"
     ],
     "environment": {
       "after": {
-        "FALLBACK_BUCKET": "platform-events-bronze",
-        "ROUTING_MAP": {
-          "orders.": {
-            "bucket": "orders-events-bronze",
-            "detailTypes": [
-              "OrderPlaced.v1"
-            ]
-          },
-          "payments.": {
-            "bucket": "payments-events-bronze",
-            "detailTypes": [
-              "PaymentCaptured.v1"
-            ]
-          }
-        }
+        "FALLBACK_BUCKET": "platform-events-bronze"
       },
       "before": {
-        "FALLBACK_BUCKET": "platform-events-bronze",
-        "ROUTING_MAP": {
-          "orders.": {
-            "bucket": "orders-events-bronze",
-            "detailTypes": [
-              "OrderPlaced.v1",
-              "order.aggregate.updated.v1"
-            ]
-          },
-          "payments.": {
-            "bucket": "payments-events-bronze",
-            "detailTypes": [
-              "PaymentCaptured.v1"
-            ]
-          }
-        }
+        "FALLBACK_BUCKET": "platform-events-bronze"
       }
     }
   },

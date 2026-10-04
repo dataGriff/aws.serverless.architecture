@@ -25,9 +25,9 @@ Both spikes green, both `findings.md` written. Do not start otherwise.
 
 ## Build
 
-1. Point Spike B's Terraform at `generated/local/` from Spike A: forward, fan-out and consumer patterns, the bus policy principal lists, and the routing map for the optional archiver. Delete every file marked `# SPIKE: replaced in spike C`. If Spike B found `anything-but` + `prefix` unsupported, select the enumerated fan-out form via a generator flag, not a hand edit.
-2. Wire `catalog-gen check` into `task test` so drift fails the run.
-3. Behaviour-through-the-catalog tests: flip `order.aggregate.updated` to public in the catalog → regenerate → `terraform plan` shows exactly the forward pattern (and routing map) changing → apply → the event now reaches the payments probe; revert and prove it stops. Add `receives[]` on payments for a second event → only the consumer pattern changes → the probe receives it. Remove a `receives[]` → delivery stops.
+1. Point Spike B's Terraform at `generated/local/` from Spike A: forward rules, `subscribers/*.json` rendered as Classic rules on the stub central (filter, retry policy, DLQ, the consumer's queue — ADR-025 L1), same-domain consumer rules, the bus policy principal lists, and the routing map and validation bundles for the archiver. There is no fan-out (ADR-021). Delete every file marked `# SPIKE: replaced in spike C`.
+2. Wire `catalog-gen check` and an empty `terraform plan -detailed-exitcode` into `task test` so both halves of drift fail the run.
+3. Behaviour-through-the-catalog tests: flip `order.aggregate.updated` to public in the catalog → regenerate → `terraform plan` shows exactly the forward rule and the archive shim (routing map + bundle) changing → apply → the event now reaches the central probe and the domain's bronze bucket (with `direct` fields as ciphertext; the old example is quarantined); revert and prove it stops. Add a cross-domain `receives[]` on payments → only that subscriber's resources are created → its queue receives the event. Remove it → the rule is gone, the bus still carries the event. Add a same-domain `receives[]` → only a consumer rule on the domain bus.
 4. If Spike B built the archiver: load the generated validation bundle into it; a payload that violates its schema, or a `direct` field in clear, is written under `processing-failed/` instead of the normal prefix; a DuckDB query over the bucket shows both prefixes.
 5. Record the plan diffs as snapshot files so the "exact set of changes" claim is reviewable.
 

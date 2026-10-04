@@ -22,6 +22,10 @@
     "maximumRetryAttempts": 185
   },
   "targets": [
-    "payment-service"
+    {
+      "queue": "payment-service-inbox",
+      "service": "payment-service",
+      "type": "sqs"
+    }
   ]
 }

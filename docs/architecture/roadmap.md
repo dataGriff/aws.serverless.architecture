@@ -35,7 +35,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- `orders-bus` (Classic) and a Classic stub `central`; public-forward rule; the `receives[]` entry rendered as a rule *on the stub central* targeting orders' consumer queue — the subscriber's shape, one hop, no fan-out
+- `orders-bus` (Classic) and a Classic stub `central`; public-forward rule; the `receives[]` entry rendered as a rule *on the stub central* targeting orders' consumer queue — the subscriber's shape, one hop, no fan-out. Start from Spike C's modules (`spikes/B-localstack-buses-end-to-end/terraform`: `event-bus`, `bus-forward-rule`, `bus-sqs-rule` with the subscriber's retry policy, `bus-s3-archiver`) and its scenario-snapshot tests (`spikes/C-join/tests/scenarios.py`); the consumer's inbox queue (`{service}-inbox`, the generated target reference) is created by the domain, not by the subscriber module
 - Archive: Firehose (or a Lambda shim where LocalStack lacks the feature) with the validation transform into `orders-events-bronze`; compactor at T−2h with daily re-compaction → `orders-events-silver`; DuckDB views with read-time dedupe
 - Orders REST API from the catalog OpenAPI with gateway validation; one command (`POST /orders` → outbox relay module) and one query; Prism serving the same spec; idempotency-store module behind the command
 - One `direct` field (customer email on `OrderPlaced.v1`) encrypted end to end through the subject-keys module; a consumer role with a decrypt grant and one without
@@ -53,7 +53,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- Generator emits, per account and per environment: forward rules, subscribers on central (filter, role, DLQ, retry 185/24h, `MaxBatchSize=1` for Lambda) for the real accounts and their Classic-rule equivalents for `platform-local`, Firehose subscribers with their validation schema bundles, `schemas/*.json` for the compactor, bucket definitions with lifecycle and CMKs, per-domain reader roles, **alarms and dashboards** for every rule, DLQ, stream, compactor and API
+- Generator emits, per account and per environment: forward rules (split at 4 KB), one subscriber file per cross-domain `receives[]` (filter, consumer-owned target reference `{service}-inbox`, role, DLQ, retry 185/24h, `MaxBatchSize=1` for Lambda) that Terraform renders as an eventsv2 subscriber in the real accounts and as a Classic rule on the stub central in `platform-local` — one file, two renderings, **no fan-out artefact** — consumer rules for same-domain events, Firehose subscribers with their validation schema bundles and the routing map packaged into the transform, `schemas/*.json` for the compactor, bucket definitions with lifecycle and CMKs, per-domain reader roles, **alarms and dashboards** for every rule, DLQ, stream, compactor and API; plus the per-event logical channel pages, the `commands/` and `queries/` pages from each OpenAPI, and the ODCS contracts, written into the catalog
 - From each `openapi.yaml`: command/query pages, the REST API body with integrations and request validators, authorizer config, typed clients per version, Prism config, Schemathesis job, Sunset headers
 - From each public event version + its overlay: the ODCS contract, and from the contract the Parquet schema, view DDL, quality checks and reader grants; the hand-written step-1 contract is replaced by the generated one and must be byte-identical
 - Output under `generated/`, read via `jsondecode(file(...))`; generator semver pinned per account; a **deploy-order manifest** per catalog change (schemas → producer rules → central rules → consumer rules → clients)
@@ -61,7 +61,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Prove
 
-- Flip an event to public → the plan shows the forward rule, Firehose routing, silver schema and an alarm, nothing else
+- Flip an event to public → the plan shows the forward rule, the Firehose transform (routing + bundle), silver schema and an alarm, nothing else; add or remove a `receives[]` → exactly one subscriber's resources. Each proof is a committed plan snapshot per catalog edit (the Spike C pattern), and the event's examples had to change too — `direct` fields are ciphertext once public
 - Add a query to the OpenAPI → one route + validator + integration; the client gains one method; Prism serves it before any handler exists
 - Mark `pii: true` on a public event, or leave a consumer on a sunset version → CI fails with the reason
 

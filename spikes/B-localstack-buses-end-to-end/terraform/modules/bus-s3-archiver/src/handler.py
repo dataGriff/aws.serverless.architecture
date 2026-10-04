@@ -3,8 +3,8 @@
     ok    s3://<domain bronze>/raw/source=<source>/detail_type=<detail-type>/<id>.json
     fail  s3://<domain bronze or fallback>/processing-failed/reason=<reason>/source=.../detail_type=.../<id>.json
 
-The bucket comes from the generated routing map (source prefix -> bucket); the verdict from validate.classify
-over the generated validation bundles packaged under validation/. Inside LocalStack's Lambda containers
+The bucket comes from the generated routing map (source prefix -> bucket, packaged as routing-map.json); the verdict
+from validate.classify over the generated validation bundles packaged under validation/. Inside LocalStack's Lambda containers
 AWS_ENDPOINT_URL is injected, so a default boto3 client reaches LocalStack's S3.
 """
 import json
@@ -16,7 +16,7 @@ import boto3
 from validate import classify, load_bundles
 
 s3 = boto3.client("s3")
-ROUTING_MAP = json.loads(os.environ["ROUTING_MAP"])
+ROUTING_MAP = json.loads((Path(__file__).parent / "routing-map.json").read_text())
 FALLBACK_BUCKET = os.environ["FALLBACK_BUCKET"]
 BUNDLES = load_bundles(Path(__file__).parent / "validation")
 

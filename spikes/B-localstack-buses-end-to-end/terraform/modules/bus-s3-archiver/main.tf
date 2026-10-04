@@ -8,8 +8,8 @@ terraform {
 # ADR-024's local shim: a Lambda on a bus that validates every matching event against the catalog-generated
 # validation bundle, routes it to the domain's bronze bucket by the generated routing map, and quarantines
 # failures under processing-failed/. The validation function (src/validate.py) is the one Firehose would call
-# on AWS; the bundles and routing map are generator output, packaged into the zip so a catalog change is a
-# code change here (source_code_hash) and a config change (ROUTING_MAP).
+# on AWS; the bundles and the routing map are generator output, packaged into the zip (an environment variable
+# has a 4 KB ceiling the routing map outgrows), so a catalog change is a code change here (source_code_hash).
 
 variable "name" { type = string }
 variable "bus_name" { type = string }
@@ -68,6 +68,10 @@ data "archive_file" "fn" {
       content  = file(source.value)
     }
   }
+  source {
+    filename = "routing-map.json"
+    content  = jsonencode(var.routing_map)
+  }
 }
 
 resource "aws_iam_role" "fn" {
@@ -105,7 +109,6 @@ resource "aws_lambda_function" "fn" {
   timeout          = 10
   environment {
     variables = {
-      ROUTING_MAP     = jsonencode(var.routing_map)
       FALLBACK_BUCKET = var.fallback_bucket
     }
   }

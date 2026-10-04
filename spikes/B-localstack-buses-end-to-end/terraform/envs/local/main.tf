@@ -129,7 +129,7 @@ module "subscriber" {
   bus_name      = module.central_bus.name
   event_pattern = each.value.filter
   retry_policy  = each.value.retryPolicy
-  tags          = merge(local.tags, { account = each.value.account, targets = join(",", each.value.targets) })
+  tags          = merge(local.tags, { account = each.value.account, targets = join(",", [for t in each.value.targets : t.queue]) })
 }
 
 # ---- Same-domain consumer rules on the domain's own bus ------------------------

@@ -4,15 +4,15 @@ The event schema is the producer's contract with consumers of the bus. The silve
 
 | Dataset | Contract | Source of the contract | Tested |
 | --- | --- | --- | --- |
-| Silver table per public event version (`silver/{source}/{detail-type}/`) | `events/<Event>/versioned/<v>/odcs.yaml` | Generated: schema from the event JSON Schema and the type mapping; `classification` from `x-pii`; owner, domain, tags from the catalog. Hand-written overlay `data-product.yaml`: SLAs, quality thresholds, terms of use, intended consumers. | L1 against local silver; nightly against the real bucket; CI diff against main |
+| Silver table per public event version (`silver/{source}/{detail-type}/`) | `events/<Event>/odcs.yaml` for the current version; it moves to `events/<Event>/versioned/<v>/odcs.yaml` with the rest of the event when a new version lands | Generated: schema from the event JSON Schema and the type mapping; `classification` from `x-pii`; owner, domain, tags from the catalog. Hand-written overlay `data-product.yaml`: SLAs, quality thresholds, terms of use, intended consumers. | L1 against local silver; nightly against the real bucket; CI diff against main |
 | Bronze per domain (raw envelope) | `domains/<domain>/bronze.odcs.yaml` | Generated from the envelope convention; one per domain; classification "as published, direct fields ciphertext" | Nightly: envelope fields present, quarantine ratio, freshness ≤ Firehose buffer |
 | Gold / derived datasets (later) | `data-products/<name>/odcs.yaml` | Hand-authored by the owning team; lineage back to the silver contracts it reads | Same nightly suite; cannot be consumed until the contract exists |
 
 ## Event entry → ODCS mapping
 
-- `id` = `{domain}.{Event}.v{n}`; `version` follows the event version; `status` from `deprecated`/`sunset`
+- `id` = `{domain}.{Event}.v{n}`; `version` follows the event version; `status` from `deprecated`
 - `domain`, `dataProduct` (`{domain}-events-silver`), `team`/`roles` from the catalog owners and the generated reader roles
-- `schema[].properties[]`: envelope columns + `d_*` columns; `logicalType`/`physicalType` from the JSON Schema type mapping; `classification` = `x-pii`; `direct` fields appear as "present only as ciphertext inside `detail`"
+- `schema[].name` is required; `schema[].properties[]`: envelope columns + `d_*` columns; `logicalType`/`physicalType` from the JSON Schema type mapping — ODCS v3.0.2's `logicalType` enum is `string|date|number|integer|object|array|boolean`, so timestamps are `date` with `physicalType: timestamp[us,UTC]`; `classification` = `x-pii`; `direct` fields appear as "present only as ciphertext inside `detail`"; a `Money` field becomes `d_<field>` (`decimal128(18,4)`) plus `d_<field>_currency`, because an event may carry two
 - `servers`: one per environment — `type: s3`, `location` from the env pin, `format: parquet`, plus the DuckDB view name; Athena added when that trigger fires
 - `slaProperties`: freshness ≤ 3 h behind bus time; retention per PII class; availability; `frequency: hourly`
 - `quality`: `event_id` unique; envelope not-null; partition completeness ≥ 99.9 %; reconciliation tolerance vs outbox; row count within expected band
@@ -23,6 +23,7 @@ The event schema is the producer's contract with consumers of the bus. The silve
 - Each public event page links to its data-product page; the data-product page renders the ODCS, the latest test result badge, the consumers (`readsFrom`) and the freshness
 - Consumers of a dataset register in the catalog exactly as event consumers do, so the dependency graph covers bus, API and data in one view, and the sunset check covers all three
 - The overlay is the only hand-written part, reviewed by the owning domain through CODEOWNERS; changing the generated part means changing the event schema
+- **Overlay ownership, enforced by the generator:** the overlay may *replace* `description`, `slaProperties`, `team`, `terms`, `support`, `price`, `tags`; may *append* to `quality` and `authoritativeDefinitions`; may *add* `customProperties` by name, the generated value winning on a clash. Any other key (`id`, `schema`, `servers`, `roles`, `status`…) fails the build with "overlay may not set generated keys". Nothing merges silently
 
 ## In the estate
 
@@ -51,13 +52,13 @@ schema:
     physicalName: silver/orders.order-service/OrderPlaced.v1/
     properties:
       - {name: event_id,          logicalType: string,    physicalType: string,             required: true, unique: true, primaryKey: true, classification: none}
-      - {name: occurred_at,       logicalType: timestamp, physicalType: "timestamp[us,UTC]", required: true, classification: none}
+      - {name: occurred_at,       logicalType: date,      physicalType: "timestamp[us,UTC]", required: true, classification: none}
       - {name: correlation_id,    logicalType: string,    physicalType: string,             classification: none}
       - {name: aggregate_id,      logicalType: string,    physicalType: string,             classification: indirect, tags: [customer-linked]}
       - {name: aggregate_version, logicalType: integer,   physicalType: int64,              classification: none}
       - {name: replay,            logicalType: boolean,   physicalType: bool,               classification: none}
-      - {name: d_total,           logicalType: number,    physicalType: "decimal(18,4)",    classification: none}
-      - {name: d_currency,        logicalType: string,    physicalType: string,             classification: none}
+      - {name: d_total,           logicalType: number,    physicalType: "decimal128(18,4)", classification: none}
+      - {name: d_total_currency,  logicalType: string,    physicalType: string,             classification: none}
       - name: detail
         logicalType: object
         physicalType: string
@@ -88,7 +89,7 @@ authoritativeDefinitions:
 customProperties:
   - {property: catalogRelease, value: "2026.10.04"}
   - {property: xPiiMax,        value: direct}
-  - {property: eventSchema,    value: "events/OrderPlaced/versioned/1/schema.json"}
+  - {property: eventSchema,    value: "events/OrderPlaced/schema.json"}
 ```
 
 Everything above `description` and every `properties` entry is generated; `description`, `slaProperties`, the `custom` quality rules' thresholds and `team` come from the hand-written `data-product.yaml` overlay.

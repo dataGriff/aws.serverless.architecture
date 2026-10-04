@@ -110,7 +110,7 @@ def test_every_deployed_rule_is_a_generated_file():
     expected = json.loads(open(GEN / "deploy-order.json").read())["files"]
     generated = {}
     for rel in expected:
-        if rel.startswith("rules/") and "-fan-out" not in rel:
+        if rel.startswith("rules/"):
             generated[rel.split("/")[-1][:-5]] = json.loads((GEN / rel).read_text())
         elif rel.startswith("subscribers/"):
             sub = json.loads((GEN / rel).read_text())

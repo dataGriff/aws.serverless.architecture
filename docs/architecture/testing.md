@@ -38,12 +38,13 @@ flowchart LR
 - Real service + outbox drained in-process → own bus → forward rule → Classic stub central → subscriber-shaped rules to own queues + archive shim → own bronze; compactor → own silver. The Custom Event Bus itself is not emulated; anything on the sandbox-only list below is not asserted here
 - Schemathesis drives the domain's own API from its catalog spec (gateway validation included); upstream APIs are Prism mocks of their catalog specs
 - Asserts via DuckDB + jsonschema, including bad-payload quarantine, cross-hour duplicates, ciphertext checks and replay-flag handling; the local silver passes its ODCS contract test; seconds per test; no other domain present
+- `task test` gates (Spike C): `catalog-gen check`, then `terraform plan -detailed-exitcode` empty, then a scan that every rule on every local bus equals its generated file — all before the first delivery test
 
 ### L2 · Platform (real AWS sandbox · nightly and per platform PR)
 
 - Synthetic events generated *from catalog schemas*, never a domain's code; an ephemeral stack per branch in the sandbox account, torn down after
 - **Sandbox-only — never trusted from LocalStack** (ADR-025): the Custom Event Bus and RAM sharing, subscriber delivery, FIFO per `EventGroupId`, dedup, point-in-time replay with `aws:DeliveryType`, DLQ records and latency, resource-policy and IAM evaluation, bus-to-bus hop limits and loop detection, Firehose buffering/partitioning/`processing-failed/`/transform contract. Tests for these carry the `sandbox` marker; a LocalStack divergence is `xfail(strict=True)` with the reason
-- Compactor dedupe/idempotency/late-event re-compaction; generator output snapshot-tested from one catalog input in both renderings (subscribers for AWS, Classic rules for `platform-local`): patterns, gateway bodies, authorizers, alarms, roles, ODCS contracts
+- Compactor dedupe/idempotency/late-event re-compaction; generator output snapshot-tested from one catalog input (the subscriber file is one artefact; Terraform renders it for AWS and for `platform-local`): patterns, gateway bodies, authorizers, alarms, roles, ODCS contracts; a `terraform plan` snapshot per canonical catalog edit
 
 ### L3 · Smoke (real AWS · post-deploy)
 

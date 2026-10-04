@@ -130,8 +130,7 @@ def reduce_plan(plan_json: dict) -> list[dict]:
             if rc["type"] == "aws_cloudwatch_event_rule":
                 entry["event_pattern"] = {"before": json.loads(before["event_pattern"]), "after": json.loads(after["event_pattern"])}
             if rc["type"] == "aws_lambda_function":
-                env = lambda side: {k: (json.loads(v) if k == "ROUTING_MAP" else v)  # noqa: E731
-                                    for k, v in (side.get("environment") or [{}])[0].get("variables", {}).items()}
+                env = lambda side: (side.get("environment") or [{}])[0].get("variables", {})  # noqa: E731
                 entry["environment"] = {"before": env(before), "after": env(after)}
         out.append(entry)
     return sorted(out, key=lambda e: e["address"])

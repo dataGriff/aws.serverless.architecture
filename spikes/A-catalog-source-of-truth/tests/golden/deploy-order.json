@@ -20,11 +20,7 @@
     "catalog/events/PaymentCaptured/odcs.yaml",
     "parquet/OrderPlaced.v1.json",
     "parquet/PaymentCaptured.v1.json",
-    "rules/orders-fan-out.enumerated.json",
-    "rules/orders-fan-out.json",
     "rules/orders-public-forward.json",
-    "rules/payments-fan-out.enumerated.json",
-    "rules/payments-fan-out.json",
     "rules/payments-public-forward.json",
     "subscribers/orders-payment-captured.json",
     "subscribers/payments-order-placed.json",
@@ -39,8 +35,7 @@
     "subscribers",
     "archive",
     "catalog/channels/*",
-    "catalog/events/*/odcs.yaml",
-    "rules/*-fan-out*  (platform-local stub only)"
+    "catalog/events/*/odcs.yaml"
   ],
   "splitRules": []
 }

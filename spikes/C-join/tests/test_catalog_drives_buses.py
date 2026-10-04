@@ -60,8 +60,7 @@ def test_flip_to_public_changes_only_the_forward_rule_and_the_archive_shim():
     assert INTERNAL not in rule["event_pattern"]["before"]["detail-type"]
     assert INTERNAL in rule["event_pattern"]["after"]["detail-type"]
     shim = changes[0]
-    assert set(shim["changed"]) == {"source_code_hash", "environment"}
-    assert INTERNAL in shim["environment"]["after"]["ROUTING_MAP"]["orders."]["detailTypes"]
+    assert shim["changed"] == ["source_code_hash"]   # bundle + routing map are packaged in the zip, not env vars
 
 
 def test_public_event_now_reaches_central_and_bronze_then_stops_when_reverted():

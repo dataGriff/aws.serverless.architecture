@@ -31,7 +31,7 @@ tasks:
     desc: Fail on drift in generated/local or the catalog's odcs.yaml files
     cmds: [uv run catalog-gen/catalog_gen.py check --catalog catalog --out generated/local]
   gen:explain:
-    desc: "task gen:explain -- rules/orders-fan-out.json"
+    desc: "task gen:explain -- subscribers/payments-order-placed.json"
     cmds:
       - "uv run catalog-gen/catalog_gen.py explain --catalog catalog --out generated/local {{.CLI_ARGS}}"
   checks:
