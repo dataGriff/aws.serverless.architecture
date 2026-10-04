@@ -55,7 +55,7 @@ task -d spikes/B-localstack-buses-end-to-end up LICENSED=true ENFORCE_IAM=0   # 
 
 ## Stretch: archive — Lambda on central → S3, read with DuckDB
 
-A rule on `central-bus` matching everything (`patterns/probe-all.json`) invokes a 10-line Lambda (`terraform/modules/bus-s3-archiver/src/handler.py`) that writes each event as one JSON object to `s3://central-archive/raw/source=<source>/detail_type=<detail-type>/<id>.json`. It stands in for ADR-009's Firehose stream, which LocalStack Community does not have, and it is what "what flowed" looks like after a `task test`:
+A rule on `central-bus` matching everything (`patterns/probe-all.json`) invokes a 10-line Lambda (`terraform/modules/bus-s3-archiver/src/handler.py`) that writes each event as one JSON object to `s3://central-archive/raw/source=<source>/detail_type=<detail-type>/<id>.json`. It is the stretch the spike prompt names; Firehose is explicitly out of scope for Spike B. LocalStack does ship Firehose in every plan (S3 delivery works), but the ADR-009 features the design depends on — dynamic partitioning on `source`/`detail-type`, the Lambda validation transform and the `processing-failed/` prefix — are undocumented for LocalStack and untested here. Step 1 should probe those three before trusting the archive locally. This is what "what flowed" looks like after a `task test`:
 
 ```
 $ task query
@@ -78,7 +78,7 @@ $ task query
 | Lambda cold start inside LocalStack is ~2 s; events land in S3 within ~3 s of `PutEvents` | `archived()` polls at 1 s and succeeds on the 2nd–3rd poll |
 | the at-least-once duplicate from `test_duplicate_put_is_delivered_twice` is two objects in the archive with the same `correlationId` and `time` and different `id`s | `task query -- "SELECT detail.correlationId, time FROM archive ORDER BY time DESC LIMIT 5"` shows the pair; this is the row ADR-011's read-time `QUALIFY row_number() OVER (PARTITION BY event_id)` exists to collapse |
 
-What this does not prove: Firehose buffering, dynamic partitioning or the validation transform (ADR-009), Object Lock or CMKs (ADR-010), or compaction (ADR-011). It proves the *shape* the data layer reads — one object per event, Hive prefixes, DuckDB over S3 — works end to end on LocalStack, and gives Spike C and Step 1 a working `duck()` helper and `task query` to start from.
+What this does not prove: anything about Firehose (buffering, dynamic partitioning, the validation transform, `processing-failed/`; ADR-009), Object Lock or CMKs (ADR-010), or compaction (ADR-011). It proves the *shape* the data layer reads — one object per event, Hive prefixes, DuckDB over S3 — works end to end on LocalStack, and gives Spike C and Step 1 a working `duck()` helper and `task query` to start from.
 
 ## Second pass: licensed image (LocalStack 2026.9.0, `task up LICENSED=true`)
 
@@ -134,3 +134,4 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 - Does the Classic bus-to-bus hop keep `time` on AWS, or re-stamp it like the Custom Event Bus does? (affects bronze partitioning by event time vs bus time)
 - Is `LOOP_DETECTED` on the Custom Event Bus reliable enough to retire the pattern-based guard?
 - Does the Terraform AWS provider cover `AWS::EventsV2::*` yet, and does LocalStack Pro?
+- Does LocalStack's Firehose honour dynamic partitioning, `ProcessingConfiguration` (the validation Lambda) and `ErrorOutputPrefix`? Undocumented; a one-hour probe before Step 1 decides whether platform-local can use real Firehose or needs this Lambda shim.

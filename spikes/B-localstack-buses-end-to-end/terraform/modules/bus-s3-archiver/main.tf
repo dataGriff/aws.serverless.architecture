@@ -6,7 +6,7 @@ terraform {
 }
 
 # Stretch from the Spike B prompt: a Lambda on a bus that writes every matching event raw to one S3 bucket,
-# so "what flowed" can be inspected with DuckDB. Stands in for the Firehose archive LocalStack Community lacks.
+# so "what flowed" can be inspected with DuckDB. Firehose is out of scope for Spike B (ADR-009 owns it).
 
 variable "name" { type = string }
 variable "bus_name" { type = string }
