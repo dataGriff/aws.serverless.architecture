@@ -2,6 +2,7 @@
 
 Prompt: `docs/architecture/prompts/spikes/A-catalog-source-of-truth.md` (or `/arch:spike-a-catalog-source-of-truth`).
 Result and findings: [`findings.md`](findings.md).
+Live site: https://datagriff.github.io/aws.serverless.architecture/ (published by `.github/workflows/pages.yml` at the repo root; the MIT core's static build needs no licence key).
 
 ```sh
 task catalog:install     # npm ci inside catalog/ (Node 22 via this directory's .mise.toml)
