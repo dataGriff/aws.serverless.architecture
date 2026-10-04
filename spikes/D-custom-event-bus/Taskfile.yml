@@ -1,0 +1,48 @@
+version: "3"
+# Spike D runs against a real AWS account in eu-west-1 (no LocalStack emulation exists for the Custom Event Bus).
+# Credentials: aws sso login --profile admin   (override with PROFILE=)
+vars:
+  TF_DIR: terraform
+  PROFILE: '{{.PROFILE | default "admin"}}'
+env:
+  AWS_PROFILE: "{{.PROFILE}}"
+  AWS_DEFAULT_REGION: eu-west-1
+  SPIKE_TF_DIR: "{{.TF_DIR}}"
+tasks:
+  default:
+    cmds:
+      - task --list
+  init:
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform init -input=false
+  apply:
+    desc: Apply the Custom Event Bus, subscribers, probes and the Classic orders-bus bridge
+    dir: "{{.TF_DIR}}"
+    deps: [init]
+    cmds:
+      # -parallelism=1: EventBridge applies one subscriber create/delete at a time per bus; parallel creates 409 (ResourceConflict)
+      - terraform apply -input=false -auto-approve -parallelism=1
+      - rm -f ../.outputs.json
+  test:
+    desc: "Run the spike tests: task test [-- -k name]"
+    cmds:
+      - uv run --with "boto3>=1.43.100" --with pytest pytest -v -rxXs tests {{.CLI_ARGS}}
+  depths:
+    desc: Depth of every queue (probes, consumers, DLQs)
+    cmds:
+      - uv run --with "boto3>=1.43.100" python3 tests/queue_depths.py
+  dlq-peek:
+    desc: Every DLQ record with its error attributes
+    cmds:
+      - uv run --with "boto3>=1.43.100" python3 tests/dlq_peek.py
+  send:
+    desc: "Publish a sample event to the Custom bus: task send -- events/order-placed.json"
+    cmds:
+      - uv run --with "boto3>=1.43.100" python3 tests/send.py {{.CLI_ARGS}}
+  destroy:
+    desc: Tear everything down (subscribers created by tests are deleted by the tests)
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform destroy -input=false -auto-approve
+      - rm -f ../.outputs.json
