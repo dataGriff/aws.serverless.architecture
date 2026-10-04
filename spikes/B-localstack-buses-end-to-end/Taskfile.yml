@@ -3,17 +3,20 @@ env:
   AWS_ENDPOINT_URL: http://localhost:4566
   AWS_ACCESS_KEY_ID: test
   AWS_SECRET_ACCESS_KEY: test
-  AWS_DEFAULT_REGION: eu-west-2
+  AWS_DEFAULT_REGION: eu-west-1
 vars:
   TF_DIR: terraform/envs/local
-  # real-AWS prefix: drop the LocalStack env above, pick the SSO profile (PROFILE= to override)
-  SANDBOX: env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}}
+  SPIKE_A: "{{.TASKFILE_DIR}}/../A-catalog-source-of-truth"
+  # catalog-gen output the buses are built from; override to apply a different generator run
+  GENERATED: '{{.GENERATED | default (printf "%s/generated/local" .SPIKE_A)}}'
+  TF_VARS: -var generated_dir={{.GENERATED}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
+  PYTEST: uv run --with boto3 --with pytest --with duckdb pytest -q tests
 tasks:
   default:
     cmds:
       - task --list
   up:
-    desc: "Start LocalStack and wait for it (LICENSED=true → 2026.09.0, needs LOCALSTACK_AUTH_TOKEN; ENFORCE_IAM=0 to relax IAM)"
+    desc: "Start LocalStack and wait for it (LICENSED=true → 2026.09.0 with ENFORCE_IAM, needs LOCALSTACK_AUTH_TOKEN; ENFORCE_IAM=0 to relax IAM)"
     cmds:
       - |
         if [ "{{.LICENSED}}" = "true" ]; then
@@ -29,32 +32,55 @@ tasks:
     desc: Stop LocalStack, wipe state
     cmds:
       - docker compose down -v
-      - rm -f .queues.json .dlqs.json {{.TF_DIR}}/terraform.tfstate {{.TF_DIR}}/terraform.tfstate.backup
+      - rm -f .queues.json .dlqs.json .archive_buckets.json {{.TF_DIR}}/terraform.tfstate {{.TF_DIR}}/terraform.tfstate.backup
+  deps:
+    desc: Install the archive shim's validator (fastjsonschema, pure Python) where the Lambda zip picks it up
+    cmds:
+      - uv pip install --target terraform/modules/bus-s3-archiver/.build/deps --no-compile-bytecode fastjsonschema==2.22.2
+    status:
+      - test -f terraform/modules/bus-s3-archiver/.build/deps/fastjsonschema/__init__.py
+  gen:
+    desc: Run catalog-gen (Spike A) so generated/local is current before a plan or apply
+    cmds:
+      - task -d {{.SPIKE_A}} gen
+  gen:check:
+    desc: Fail if generated/local (or the catalog's generated files) drifted from the catalog
+    cmds:
+      - task -d {{.SPIKE_A}} gen:check
   init:
     dir: "{{.TF_DIR}}"
     cmds:
       - terraform init -input=false
-  apply:
-    desc: "Apply (vars: FAN_OUT=anything-but|enumerated, TRANSFORMER=true|false)"
+  plan:
+    desc: "Plan from the generator output (GENERATED=<dir> to plan a different run): task plan [-- -out=plan.bin]"
     dir: "{{.TF_DIR}}"
-    deps: [init]
+    deps: [init, deps]
     cmds:
-      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
-      - rm -f ../../../.queues.json ../../../.dlqs.json
+      - terraform plan -input=false {{.TF_VARS}} {{.CLI_ARGS}}
+  apply:
+    desc: "Regenerate from the catalog, then apply (vars: GENERATED=<dir>, TRANSFORMER=true|false)"
+    dir: "{{.TF_DIR}}"
+    deps: [init, deps]
+    cmds:
+      - task: gen
+      - terraform apply -input=false -auto-approve {{.TF_VARS}}
+      - rm -f ../../../.queues.json ../../../.dlqs.json ../../../.archive_buckets.json
   test:
-    desc: Run the spike tests on LocalStack (sandbox-marked tests are excluded — LocalStack gives false positives for them; see findings)
+    desc: "Drift gate (catalog → generated → applied), then the suite. sandbox-marked tests are excluded: LocalStack gives false positives for them (ADR-025)"
     cmds:
-      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer and not sandbox" {{.CLI_ARGS}}
+      - task: gen:check
+      - terraform -chdir={{.TF_DIR}} plan -input=false -detailed-exitcode {{.TF_VARS}} >/dev/null || { echo "applied buses drift from generated/ (run task apply)"; exit 1; }
+      - "{{.PYTEST}} -m \"not transformer and not sandbox\" {{.CLI_ARGS}}"
   test-all-local:
     desc: Run every test on LocalStack including sandbox-marked ones, to see the false positives for yourself
     cmds:
-      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer" {{.CLI_ARGS}}
+      - "{{.PYTEST}} -m \"not transformer\" {{.CLI_ARGS}}"
   test-transformer:
-    desc: Apply with the transformer rule and run only that test
+    desc: Apply with the transformer rule and run only that test (ADR-022; the licensed image rejects the rule at apply)
     cmds:
       - task: apply
         vars: { TRANSFORMER: "true" }
-      - uv run --with boto3 --with pytest pytest -q tests -m transformer
+      - "{{.PYTEST}} -m transformer"
   send:
     desc: "Put a sample event: task send -- events/order-placed.json"
     cmds:
@@ -63,17 +89,26 @@ tasks:
     desc: Peek at the broken-target DLQ (messages stay on the queue)
     cmds:
       - aws sqs receive-message --queue-url $(terraform -chdir={{.TF_DIR}} output -raw broken_target_dlq_url) --max-number-of-messages 10 --message-attribute-names All --visibility-timeout 0
+  dlq-peek:
+    desc: Every DLQ record with its ERROR_CODE / ERROR_MESSAGE
+    cmds:
+      - uv run --with boto3 python3 tests/dlq_peek.py
   sizes:
     desc: Pattern sizes in bytes
     dir: "{{.TF_DIR}}"
     cmds:
       - terraform output -json pattern_sizes
+  rules:
+    desc: Deployed rules on every bus next to the generated file each one came from
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform output -json rules
   probe:
     desc: "LocalStack feature probes (archive/replay, pattern operators) — prints a table for findings.md"
     cmds:
       - uv run --with boto3 python3 tests/probe_localstack.py
   query:
-    desc: "DuckDB over the central archive in S3: task query  (or task query -- \"SELECT ... FROM archive\")"
+    desc: "DuckDB over the bronze buckets, raw and processing-failed: task query  (or task query -- \"SELECT ... FROM archive\")"
     cmds:
       - uv run --with boto3 --with duckdb python3 tests/query_archive.py {{.CLI_ARGS}}
   probe-firehose:
@@ -82,32 +117,6 @@ tasks:
       - task: apply
         vars: { FIREHOSE: "true" }
       - uv run --with boto3 --with duckdb python3 tests/probe_firehose.py
-  # ---- real AWS sandbox (profile via PROFILE=, default admin). LocalStack env vars are unset for these. ----
-  sandbox-apply:
-    desc: "Apply buses, rules and probes to a real AWS account: task sandbox-apply [PROFILE=admin]"
-    dir: terraform/envs/sandbox
-    cmds:
-      - "{{.SANDBOX}} terraform init -input=false"
-      - "{{.SANDBOX}} terraform apply -input=false -auto-approve"
-      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
-  sandbox-test:
-    desc: "Run the suite against the sandbox, sandbox-marked tests included (archiver/DuckDB tests skip): task sandbox-test [PROFILE=admin] [-- -k ...]"
-    cmds:
-      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 --with pytest pytest -v -rxXs tests -m \"not transformer\" {{.CLI_ARGS}}"
-  sandbox-depths:
-    desc: Queue depths in the sandbox
-    cmds:
-      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/queue_depths.py"
-  sandbox-dlq-peek:
-    desc: Every sandbox DLQ record with its ERROR_CODE / ERROR_MESSAGE
-    cmds:
-      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/dlq_peek.py"
-  sandbox-destroy:
-    desc: Tear the sandbox resources down
-    dir: terraform/envs/sandbox
-    cmds:
-      - "{{.SANDBOX}} terraform destroy -input=false -auto-approve"
-      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
   depths:
     desc: Depth of every queue (probes, consumers, DLQs)
     cmds:

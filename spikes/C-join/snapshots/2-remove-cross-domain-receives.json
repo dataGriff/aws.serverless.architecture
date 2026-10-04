@@ -1,0 +1,38 @@
+[
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_cloudwatch_event_rule.this"
+  },
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_cloudwatch_event_target.sqs"
+  },
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_sqs_queue.dlq"
+  },
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_sqs_queue.target"
+  },
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_sqs_queue_policy.dlq"
+  },
+  {
+    "actions": [
+      "delete"
+    ],
+    "address": "module.subscriber[\"payments-order-aggregate-updated\"].aws_sqs_queue_policy.target[0]"
+  }
+]

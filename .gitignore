@@ -19,3 +19,5 @@ spikes/A-catalog-source-of-truth/generated/
 
 # claude worktrees
 .claude/worktrees/
+
+spikes/C-join/.scenarios/

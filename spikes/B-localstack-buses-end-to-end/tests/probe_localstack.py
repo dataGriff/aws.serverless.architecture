@@ -17,7 +17,7 @@ from botocore.config import Config
 
 from harness import ENDPOINT, _cfg, drain, envelope, events, put, queues
 
-EVENT = {"id": "1", "account": "000000000000", "time": "2026-10-04T15:00:00Z", "region": "eu-west-2",
+EVENT = {"id": "1", "account": "000000000000", "time": "2026-10-04T15:00:00Z", "region": "eu-west-1",
          "resources": [], "source": "payments.payment-service", "detail-type": "PaymentCaptured.v1",
          "detail": {"eventId": "x", "replay": False, "nested": {"a": 1}}}
 
@@ -56,7 +56,7 @@ def probe_operators() -> list[tuple[str, str]]:
 
 
 def probe_archive_replay() -> list[tuple[str, str]]:
-    rows, bus_arn = [], "arn:aws:events:eu-west-2:000000000000:event-bus/central-bus"
+    rows, bus_arn = [], "arn:aws:events:eu-west-1:000000000000:event-bus/central-bus"
     name = f"spike-archive-{int(time.time())}"
     try:
         events.create_archive(ArchiveName=name, EventSourceArn=bus_arn, RetentionDays=1,
@@ -73,7 +73,7 @@ def probe_archive_replay() -> list[tuple[str, str]]:
         # no retries: LocalStack 4.14 returns 500 on the first call and registers the replay anyway,
         # so boto's retry would report a misleading ResourceAlreadyExistsException
         no_retry = boto3.client("events", config=Config(retries={"max_attempts": 0}), **_cfg)
-        r = no_retry.start_replay(ReplayName=f"{name}-replay", EventSourceArn=f"arn:aws:events:eu-west-2:000000000000:archive/{name}",
+        r = no_retry.start_replay(ReplayName=f"{name}-replay", EventSourceArn=f"arn:aws:events:eu-west-1:000000000000:archive/{name}",
                                 EventStartTime=now - 600, EventEndTime=now + 60,
                                 Destination={"Arn": bus_arn})
         rows.append(("StartReplay", f"ok ({r.get('State')})"))
@@ -101,7 +101,7 @@ def probe_transformer_on_bus_target() -> list[tuple[str, str]]:
     events.put_rule(Name=rule, EventBusName=bus, EventPattern=json.dumps({"detail-type": ["ProbeTransformer.v1"]}))
     try:
         r = events.put_targets(Rule=rule, EventBusName=bus, Targets=[{
-            "Id": "bus", "Arn": "arn:aws:events:eu-west-2:000000000000:event-bus/central-bus", "RoleArn": role,
+            "Id": "bus", "Arn": "arn:aws:events:eu-west-1:000000000000:event-bus/central-bus", "RoleArn": role,
             "InputTransformer": {"InputPathsMap": {"eventId": "$.detail.eventId"},
                                  "InputTemplate": '{"eventId": <eventId>}'}}])
         failed = r.get("FailedEntries") or []

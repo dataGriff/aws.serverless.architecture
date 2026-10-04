@@ -1,0 +1,38 @@
+[
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_cloudwatch_event_rule.this"
+  },
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_cloudwatch_event_target.sqs"
+  },
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_sqs_queue.dlq"
+  },
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_sqs_queue.target"
+  },
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_sqs_queue_policy.dlq"
+  },
+  {
+    "actions": [
+      "create"
+    ],
+    "address": "module.consumer_rule[\"orders-consumer-order-aggregate-updated\"].aws_sqs_queue_policy.target[0]"
+  }
+]
