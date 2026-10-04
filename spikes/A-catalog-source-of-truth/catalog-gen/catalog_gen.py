@@ -162,6 +162,18 @@ def _ids(items) -> list[tuple[str, str]]:
     return out
 
 
+def resolve_versions(ver: str, known: list[Event], who: str) -> list[Event]:
+    """`latest` → the newest version; `1`, `1.0.0`, `^1.0.0`, `1.x` → every known event whose major is 1.
+    No match is an error: silently subscribing to a different version is how consumers break."""
+    if ver == "latest":
+        return known[-1:]
+    major = ver.lstrip("^~").split(".")[0]
+    hits = [e for e in known if e.version == major]
+    if not hits:
+        raise SystemExit(f"{who}: version {ver!r} matches none of {[e.detail_type for e in known]} (conventions.md: version in the name)")
+    return hits
+
+
 def _x(fm, key: str, default=None):
     """Platform keys are `x-` prefixed in EventCatalog frontmatter (unknown top-level keys fail the build);
     the bare key is accepted too for fixtures."""
@@ -187,24 +199,31 @@ def load(catalog_dir: Path) -> Catalog:
         domain = _x(fm, "domain") or service_domain.get(fm["id"])
         if domain is None:
             raise SystemExit(f"{md}: service {fm['id']} is not listed by any domain and has no x-domain: key")
+        if domain not in cat.domains:
+            raise SystemExit(f"{md}: service {fm['id']} belongs to domain {domain!r}, which has no domains/{domain}/index.mdx")
         cat.services[fm["id"]] = Service(fm["id"], domain, _ids(fm.get("sends")), _ids(fm.get("receives")),
                                          md.parent / spec if spec else None, md.parent)
     sender: dict[str, Service] = {}
     for s in cat.services.values():
         for ev, _ in s.sends:
             sender.setdefault(ev, s)
+    SCHEMA_IDS.clear()
     for p in sorted(catalog_dir.glob("schemas/**/*.json")):
-        cat.schemas[str(p.relative_to(catalog_dir))] = json.loads(p.read_text())
+        cat.schemas[str(p.relative_to(catalog_dir))] = schema = json.loads(p.read_text())
+        if schema.get("$id"):
+            SCHEMA_IDS[schema["$id"]] = p
     for md in sorted(catalog_dir.glob("events/*/index.md*")) + sorted(catalog_dir.glob("events/*/versioned/*/index.md*")):
         fm = frontmatter.load(md)
         schema_path = md.parent / (fm.get("schemaPath") or "schema.json")
         if not schema_path.exists():
-            continue
+            raise SystemExit(f"{md}: event {fm['id']} has no schema at {schema_path.name} (schemaPath); every event needs one")
         overlay_path = md.parent / "data-product.yaml"
         svc = sender.get(fm["id"])
         domain = _x(fm, "domain") or (svc.domain if svc else None)
         if domain is None:
             raise SystemExit(f"{md}: event {fm['id']} has no sending service and no x-domain: key")
+        if domain not in cat.domains:
+            raise SystemExit(f"{md}: event {fm['id']} belongs to domain {domain!r}, which has no domains/{domain}/index.mdx")
         ev = Event(name=fm["id"], version=str(fm["version"]).split(".")[0], domain=domain,
                    service=svc.name if svc else "unknown", visibility=_x(fm, "visibility", "internal"),
                    audience=_x(fm, "audience", "all"), schema=json.loads(schema_path.read_text()),
@@ -223,12 +242,24 @@ def load(catalog_dir: Path) -> Catalog:
 # ---------------------------------------------------------------- schema helpers
 
 
+SCHEMA_IDS: dict[str, Path] = {}   # $id → file, for every schemas/**/*.json; filled by load()
+
+
+def _ref_target(cur: Path, ref: str) -> Path:
+    """A $ref is either a shared schema's `$id` URL (preferred: it survives the event moving under versioned/<v>/)
+    or a path relative to the referencing file."""
+    target = SCHEMA_IDS.get(str(ref)) or (cur / ref).resolve()
+    if not target.is_file():
+        raise SystemExit(f"{cur}: $ref {ref!r} does not resolve to a file or a known $id (generation-and-ci.md: every $ref resolves into schemas/)")
+    return target
+
+
 def deref(schema: dict, base: Path) -> dict:
     """Inline every relative-file $ref so the result stands alone. Sibling keys of $ref win."""
     def walk(node, cur: Path):
         if isinstance(node, dict):
             if "$ref" in node and not str(node["$ref"]).startswith("#"):
-                target = (cur / node["$ref"]).resolve()
+                target = _ref_target(cur, node["$ref"])
                 merged = walk(json.loads(target.read_text()), target.parent)
                 merged.update({k: v for k, v in node.items() if k != "$ref"})
                 merged.pop("$id", None)
@@ -247,7 +278,7 @@ def ref_sources(schema: dict, base: Path) -> list[Path]:
     def walk(node, cur: Path):
         if isinstance(node, dict):
             if "$ref" in node and not str(node["$ref"]).startswith("#"):
-                target = (cur / node["$ref"]).resolve()
+                target = _ref_target(cur, node["$ref"])
                 found.append(target)
                 walk(json.loads(target.read_text()), target.parent)
             for v in node.values():
@@ -361,6 +392,18 @@ def _split_detail_types(prefix: str, detail_types: list[str]) -> list[list[str]]
     return parts
 
 
+def forward_rule_files(cat: Catalog, domain: str) -> list[str]:
+    """The forward rule file(s) for a domain: none when it has no public events (an empty detail-type list is an
+    invalid EventBridge pattern), one file, or -part-N files when the pattern would exceed --pattern-limit."""
+    public = cat.public_events(domain)
+    if not public:
+        return []
+    parts = _split_detail_types(f"{domain}.", [e.detail_type for e in public])
+    if len(parts) == 1:
+        return [f"rules/{domain}-public-forward.json"]
+    return [f"rules/{domain}-public-forward.part-{i}.json" for i in range(1, len(parts) + 1)]
+
+
 def emit_rules(cat: Catalog) -> dict[str, str]:
     out: dict[str, str] = {}
     domains = sorted(cat.domains)
@@ -369,12 +412,8 @@ def emit_rules(cat: Catalog) -> dict[str, str]:
         public = cat.public_events(d)
         parts = _split_detail_types(f"{d}.", [e.detail_type for e in public])
         srcs = [cat.domains[d].path] + [e.path for e in public]
-        if len(parts) == 1:
-            _emit(out, f"rules/{d}-public-forward.json", _j({"source": [{"prefix": f"{d}."}], "detail-type": parts[0]}), srcs)
-        else:
-            for i, part in enumerate(parts, 1):
-                _emit(out, f"rules/{d}-public-forward.part-{i}.json",
-                      _j({"source": [{"prefix": f"{d}."}], "detail-type": part}), srcs)
+        for rel, part in zip(forward_rule_files(cat, d), parts):
+            _emit(out, rel, _j({"source": [{"prefix": f"{d}."}], "detail-type": part}), srcs)
         _emit(out, f"rules/{d}-fan-out.json", _j({"source": [{"anything-but": {"prefix": f"{d}."}}]}), domain_paths)
         _emit(out, f"rules/{d}-fan-out.enumerated.json", _j({"source": [{"prefix": f"{o}."} for o in domains if o != d]}), domain_paths)
     for rel, (pattern, sources) in _consumer_rules(cat).items():
@@ -420,8 +459,7 @@ def subscriptions(cat: Catalog) -> list[Subscription]:
                 major = ver.lstrip("^").split(".")[0]
                 sub.detail_types.append(f"{ev_id}.v{major if major != 'latest' else '1'}")
                 continue
-            versions = [e for e in known if ver in ("latest", e.version, f"^{e.version}") or ver.split(".")[0] == e.version] or known[-1:]
-            for e in versions:
+            for e in resolve_versions(ver, known, f"{svc.name} receives {ev_id}"):
                 sub.detail_types.append(e.detail_type)
                 sub.sources.append(e.source_prefix)
                 sub.paths.append(e.path)
@@ -699,17 +737,18 @@ def emit_channels(cat: Catalog) -> dict[str, str]:
         }
         if ev.visibility == "public":
             fm["routes"] = [{"id": central_channel(ev)}]
+        forward = forward_rule_files(cat, ev.domain) if ev.visibility == "public" else []
         fm.update({
             "x-generated": "catalog-gen",
             "x-physical-channel": dom.bus,
             "x-detail-type": ev.detail_type,
             "x-source": ev.source,
             "x-visibility": ev.visibility,
-            "x-forward-rule": f"rules/{ev.domain}-public-forward.json" if ev.visibility == "public" else None,
+            "x-forward-rules": forward or None,
         })
         fm = {k: v for k, v in fm.items() if v is not None}
-        body = (f"Logical channel: `detail-type: {ev.detail_type}` on the physical bus [[channel|{dom.bus}]]. "
-                + (f"The generated rule `{fm['x-forward-rule']}` forwards it to central-bus (the one bus-to-bus hop AWS allows); "
+        body = (f"Logical channel: `detail-type: {ev.detail_type}` on the physical bus `{dom.bus}` (EventBridge Classic, {ev.domain} account). "
+                + (f"The generated rule(s) {', '.join(f'`{f}`' for f in forward)} forward it to central-bus (the one bus-to-bus hop AWS allows); "
                    f"consumers in other domains subscribe on central (see the route)." if ev.visibility == "public"
                    else "Internal: consumed only by rules on this bus inside the account.")
                 + "\n\n<ChannelInformation />")
@@ -738,8 +777,9 @@ def emit_channels(cat: Catalog) -> dict[str, str]:
             "x-deduplication-id": "detail.eventId",
             "x-subscribers": [f"subscribers/{s.domain}-{kebab(s.event)}.json" for s in consumers],
         })
-        body = (f"Logical channel: `detail-type: {ev.detail_type}` on [[channel|{CENTRAL}]]. Arrives from [[channel|{bus_channel(cat, ev)}]] "
-                f"through the forward rule. " + (f"{len(consumers)} subscriber(s) deliver it to consumer targets in their own accounts; "
+        body = (f"Logical channel: `detail-type: {ev.detail_type}` on the physical bus `{CENTRAL}` (EventBridge Custom Event Bus, platform account). "
+                f"Arrives from [[channel|{bus_channel(cat, ev)}]] through the forward rule. "
+                + (f"{len(consumers)} subscriber(s) deliver it to consumer targets in their own accounts; "
                                                  "there is no fan-out to domain buses." if consumers else "No subscribers yet.")
                 + "\n\n<ChannelInformation />")
         _emit(out, f"{CATALOG_PREFIX}channels/{fm['id']}/index.mdx", _channel_page(fm, body), srcs + [p for s in consumers for p in s.paths])
@@ -764,7 +804,8 @@ def emit_channels(cat: Catalog) -> dict[str, str]:
                 "x-dead-letter-queue": f"{s.domain}-{kebab(s.event)}-dlq",
                 "x-targets": s.services,
             }
-            body = (f"The {s.domain} domain's subscriber on [[channel|{CENTRAL}]] for `{dt}` (ADR-021). Generated from `receives[]`: "
+            fed_by = f", fed by [[channel|{CENTRAL}.{dt}]]" if s.events else " (the event is not in the catalog yet)"
+            body = (f"The {s.domain} domain's subscriber on the physical bus `{CENTRAL}` for `{dt}` (ADR-021){fed_by}. Generated from `receives[]`: "
                     f"the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. "
                     f"Never targets a domain bus.\n\n<ChannelInformation />")
             _emit(out, f"{CATALOG_PREFIX}channels/{fm['id']}/index.mdx", _channel_page(fm, body), s.paths)

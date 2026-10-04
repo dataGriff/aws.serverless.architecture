@@ -14,10 +14,28 @@ import frontmatter, jsonschema, yaml
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent / "catalog-gen"))
 from schema_diff import breaking_changes  # noqa: E402
+from catalog_gen import CIPHERTEXT_ENVELOPE  # noqa: E402  — the wire format must be the one the validator enforces
 
 META = json.loads((HERE / "x-pii.metaschema.json").read_text())
 CENTRAL = "central-bus"
+
+
+class RefError(Exception):
+    """A $ref that does not resolve; reported by check_refs_into_schemas, skipped by the other checks."""
+
+
+SCHEMA_IDS: dict[str, Path] = {}   # $id → file for schemas/**/*.json; a $ref may be an $id URL or a relative path
+
+
+def resolve_versions(ver: str, known: list[dict]) -> list[dict]:
+    """Same rule as the generator: latest → newest; `1`, `1.0.0`, `^1.0.0` → every event with that major."""
+    known = sorted(known, key=lambda e: int(e["version"].split(".")[0]))
+    if ver == "latest":
+        return known[-1:]
+    major = ver.lstrip("^~").split(".")[0]
+    return [e for e in known if e["version"].split(".")[0] == major]
 
 
 # ---------------------------------------------------------------- loading
@@ -53,6 +71,7 @@ def load(cat: Path) -> dict:
                       for s in fm.get("sends") or []},
             "receives": {r["id"] if isinstance(r, dict) else r: [i for i, _ in _ids(r.get("from"))] if isinstance(r, dict) else []
                          for r in fm.get("receives") or []},
+            "versions": {**{i: v for i, v in _ids(fm.get("sends"))}, **{i: v for i, v in _ids(fm.get("receives"))}},
             "openapi": next((md.parent / s["path"] for s in (fm.get("specifications") or [])
                              if isinstance(s, dict) and s.get("type") == "openapi"), None)
             if isinstance(fm.get("specifications"), list)
@@ -73,9 +92,16 @@ def load(cat: Path) -> dict:
         for md in sorted(cat.glob(f"{folder}/*/index.md*")):
             fm = frontmatter.load(md)
             m["messages"][fm["id"]] = {"kind": kind, "path": md, "fm": fm, "operation_id": _x(fm, "operation-id")}
+    SCHEMA_IDS.clear()
     for p in sorted(cat.glob("schemas/**/*.json")):
-        m["schemas"][p] = json.loads(p.read_text())
+        m["schemas"][p] = schema = json.loads(p.read_text())
+        if schema.get("$id"):
+            SCHEMA_IDS[schema["$id"]] = p
     return m
+
+
+def _ref_target(cur: Path, ref: str) -> Path:
+    return (SCHEMA_IDS.get(str(ref)) or (cur / ref)).resolve()
 
 
 def _event_by_name(m, name):
@@ -86,7 +112,9 @@ def _deref(schema: dict, base: Path) -> dict:
     def walk(node, cur):
         if isinstance(node, dict):
             if "$ref" in node and not str(node["$ref"]).startswith("#"):
-                target = (cur / node["$ref"]).resolve()
+                target = _ref_target(cur, node["$ref"])
+                if not target.is_file():
+                    raise RefError(f"$ref {node['$ref']} from {cur} does not resolve")
                 merged = walk(json.loads(target.read_text()), target.parent)
                 merged.update({k: v for k, v in node.items() if k != "$ref"})
                 return merged
@@ -137,7 +165,10 @@ def check_direct_on_public_requires_encryption(cat: Path, m: dict) -> list[str]:
                     fails.append(f"{e['id']}.{here}: direct PII on a public event needs encryption: subject-key and decryptors (pii.md)")
                 if prop.get("properties"):
                     walk(prop, here + ".")
-        walk(_deref(e["schema"], e["schema_path"].parent), "")
+        try:
+            walk(_deref(e["schema"], e["schema_path"].parent), "")
+        except RefError:
+            continue   # reported by check_refs_into_schemas
     return fails
 
 
@@ -188,10 +219,10 @@ def check_channel_topology(cat: Path, m: dict) -> list[str]:
     physical channel pages (orders-bus, central-bus...) carry no routes: routing is on the generated logical channels."""
     fails = []
     bus_of = {d: _x(dom["fm"], "bus", f"{d}-bus") for d, dom in m["domains"].items()}
-    physical = set(bus_of.values()) | {CENTRAL}
 
-    def dts(ev_id):
-        return [f"{e['id']}.v{e['version'].split('.')[0]}" for e in _event_by_name(m, ev_id)]
+    def dts(ev_id, ver):
+        """detail-types of the versions this service actually names (same rule as the generator)."""
+        return [f"{e['id']}.v{e['version'].split('.')[0]}" for e in resolve_versions(ver, _event_by_name(m, ev_id))]
 
     for sname, s in m["services"].items():
         own = bus_of.get(s["domain"])
@@ -201,26 +232,30 @@ def check_channel_topology(cat: Path, m: dict) -> list[str]:
         for ev_id, to in s["sends"].items():
             if ev_id in m["messages"]:
                 continue
-            expected = {f"{own}.{dt}" for dt in dts(ev_id)}
+            ver = s["versions"].get(ev_id, "latest")
+            if _event_by_name(m, ev_id) and not dts(ev_id, ver):
+                fails.append(f"{sname} sends {ev_id} version {ver}, which does not exist (conventions.md)")
+                continue
+            expected = {f"{own}.{dt}" for dt in dts(ev_id, ver)}
             if set(to) != expected:
                 fails.append(f"{sname} sends {ev_id} to {to or '[]'}; expected its logical channel(s) {sorted(expected)} on the domain's own bus (ADR-021)")
         for ev_id, frm in s["receives"].items():
             if ev_id in m["messages"]:
                 continue
+            ver = s["versions"].get(ev_id, "latest")
             evs = _event_by_name(m, ev_id)
+            if evs and not dts(ev_id, ver):
+                fails.append(f"{sname} receives {ev_id} version {ver}, which does not exist (conventions.md)")
+                continue
             if evs and all(e["domain"] == s["domain"] for e in evs):
-                expected = {f"{own}.{dt}" for dt in dts(ev_id)}
+                expected = {f"{own}.{dt}" for dt in dts(ev_id, ver)}
                 why = "same-domain events are consumed from their channel on the domain bus"
             else:
-                expected = {f"{s['domain']}-sub.{dt}" for dt in dts(ev_id)} or {f"{s['domain']}-sub.{ev_id}.v1"}
+                major = ver.lstrip("^~").split(".")[0]
+                expected = {f"{s['domain']}-sub.{dt}" for dt in dts(ev_id, ver)} or {f"{s['domain']}-sub.{ev_id}.v{major if major != 'latest' else '1'}"}
                 why = "cross-domain events are consumed through the domain's own subscriber on central"
             if set(frm) != expected:
                 fails.append(f"{sname} receives {ev_id} from {frm or '[]'}; expected {sorted(expected)}: {why} (ADR-021)")
-    for ch, routes in m["channel_routes"].items():
-        if ch in physical and routes:
-            fails.append(f"physical channel {ch} must not declare routes {routes}; routing lives on the logical channels (ADR-021)")
-    if CENTRAL not in m["channel_routes"]:
-        fails.append(f"channel {CENTRAL} is missing (README.md)")
     return fails
 
 
@@ -237,7 +272,7 @@ def check_refs_into_schemas(cat: Path, m: dict) -> list[str]:
         for ref in _refs(schema):
             if str(ref).startswith("#"):
                 continue
-            target = (p.parent / ref).resolve()
+            target = _ref_target(p.parent, ref)
             if not target.exists():
                 fails.append(f"{p.relative_to(cat)}: $ref {ref} does not resolve (generation-and-ci.md)")
             elif not target.is_relative_to(schemas_root):
@@ -306,18 +341,19 @@ def check_examples_match_schema(cat: Path, m: dict) -> list[str]:
     envelope = next((s for p, s in m["schemas"].items() if p.name == "Envelope.json"), None)
     if envelope is None:
         return ["schemas/Envelope.json missing (conventions.md)"]
-    cipher = {"type": "object", "required": ["enc", "kid", "ct"], "properties": {"enc": {"const": "v1"}, "kid": {"type": "string"}, "ct": {"type": "string"}}}
-
     def wire(node):
         out = dict(node)
-        out["properties"] = {k: (cipher if v.get("x-pii") == "direct" else wire(v) if v.get("properties") else v)
+        out["properties"] = {k: (CIPHERTEXT_ENVELOPE if v.get("x-pii") == "direct" else wire(v) if v.get("properties") else v)
                              for k, v in (node.get("properties") or {}).items()}
         return out
 
     for e in m["events"].values():
         if not e["schema"]:
             continue
-        payload = _deref(e["schema"], e["schema_path"].parent)
+        try:
+            payload = _deref(e["schema"], e["schema_path"].parent)
+        except RefError:
+            continue   # reported by check_refs_into_schemas
         if e["visibility"] == "public":
             payload = wire(payload)
         schema = {"type": "object", "additionalProperties": False,
@@ -345,7 +381,11 @@ def check_schema_diff(cat: Path, m: dict, base: Path | None = None) -> list[str]
         old = base / e["schema_path"].relative_to(cat)
         if not old.exists() or not e["schema"]:
             continue
-        for change in breaking_changes(_deref(json.loads(old.read_text()), old.parent), _deref(e["schema"], e["schema_path"].parent)):
+        try:
+            before, after = _deref(json.loads(old.read_text()), old.parent), _deref(e["schema"], e["schema_path"].parent)
+        except RefError:
+            continue   # reported by check_refs_into_schemas
+        for change in breaking_changes(before, after):
             fails.append(f"{e['id']} v{e['version']}: {change}; a breaking change needs a new version (generation-and-ci.md)")
     return fails
 
@@ -356,6 +396,8 @@ CHECKS = [check_x_pii, check_direct_on_public_requires_encryption, check_receive
 
 
 def run(cat: Path, base: Path | None = None, only: str | None = None) -> dict[str, list[str]]:
+    if only and only not in {c.__name__ for c in CHECKS}:
+        raise SystemExit(f"--only {only!r} matches no check; choose from {[c.__name__ for c in CHECKS]}")
     m = load(cat)
     results = {}
     for c in CHECKS:

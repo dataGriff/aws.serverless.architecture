@@ -292,6 +292,102 @@ def test_explain_names_the_catalog_files_that_drive_a_generated_file(tmp_path):
     assert gen("explain", c, out, "rules/nothing.json").returncode == 1
 
 
+# ---------------------------------------------------------------- loader and version guards (code-review findings)
+
+
+def test_missing_schema_path_fails_the_build(tmp_path):
+    def typo(c: Path):
+        md = c / "events/OrderPlaced/index.mdx"
+        md.write_text(md.read_text().replace("schemaPath: schema.json", "schemaPath: schmea.json"))
+    r = gen("build", _mutated_catalog(tmp_path, typo), tmp_path / "out")
+    assert r.returncode != 0 and "schmea.json" in r.stderr
+
+
+def test_dangling_ref_fails_build_and_is_reported_by_checks(tmp_path):
+    broken = copy_catalog(tmp_path)
+    shutil.copytree(FIXTURES / "checks/check_refs_into_schemas", broken, dirs_exist_ok=True)
+    r = gen("build", broken, tmp_path / "out")
+    assert r.returncode != 0 and "does not resolve" in r.stderr and "Traceback" not in r.stderr
+    results = run_checks.run(broken)                      # every check runs; none tracebacks
+    assert any("does not resolve" in f for f in results["check_refs_into_schemas"])
+
+
+def test_undeclared_domain_fails_the_build(tmp_path):
+    def orphan(c: Path):
+        md = c / "services/payment-service/index.mdx"
+        md.write_text(md.read_text().replace("x-account: payments", "x-domain: shipping\nx-account: payments"))
+    r = gen("build", _mutated_catalog(tmp_path, orphan), tmp_path / "out")
+    assert r.returncode != 0 and "domains/shipping/index.mdx" in r.stderr and "Traceback" not in r.stderr
+
+
+def test_domain_without_public_events_gets_no_forward_rule(tmp_path):
+    def privatise(c: Path):
+        md = c / "events/PaymentCaptured/index.mdx"
+        md.write_text(md.read_text().replace("x-visibility: public", "x-visibility: internal"))
+        svc = c / "services/order-service/index.mdx"
+        svc.write_text(svc.read_text().replace("orders-sub.PaymentCaptured.v1", "payments-bus.PaymentCaptured.v1"))
+    files = build(_mutated_catalog(tmp_path, privatise), tmp_path / "out")
+    assert "rules/payments-public-forward.json" not in files
+    assert all('"detail-type": []' not in v for k, v in files.items() if k.startswith("rules/"))
+
+
+def test_unmatched_receives_version_fails_instead_of_falling_back(tmp_path):
+    def wrong(c: Path):
+        md = c / "services/payment-service/index.mdx"
+        md.write_text(md.read_text().replace("- id: OrderPlaced\n    version: 1.0.0", "- id: OrderPlaced\n    version: 3.0.0"))
+    r = gen("build", _mutated_catalog(tmp_path, wrong), tmp_path / "out")
+    assert r.returncode != 0 and "version '3.0.0' matches none of ['OrderPlaced.v1']" in r.stderr
+
+
+def test_second_event_version_keeps_generator_and_check_consistent(tmp_path):
+    """OrderPlaced v2 is current, v1 is kept under versioned/; payments still receives v1 (caret range).
+    The generator emits channels for the versions that are named; the topology check expects exactly those."""
+    def bump(c: Path):
+        ev = c / "events/OrderPlaced"
+        old = ev / "versioned/1"
+        old.mkdir(parents=True)
+        for f in ("index.mdx", "schema.json", "data-product.yaml"):
+            shutil.copy(ev / f, old / f)
+        (ev / "index.mdx").write_text((ev / "index.mdx").read_text().replace("version: 1.0.0", "version: 2.0.0"))
+        ps = c / "services/payment-service/index.mdx"
+        ps.write_text(ps.read_text().replace("- id: OrderPlaced\n    version: 1.0.0", "- id: OrderPlaced\n    version: ^1.0.0"))
+        os_ = c / "services/order-service/index.mdx"
+        os_.write_text(os_.read_text().replace("- id: OrderPlaced\n    version: 1.0.0\n    to:\n      - id: orders-bus.OrderPlaced.v1",
+                                               "- id: OrderPlaced\n    version: 2.0.0\n    to:\n      - id: orders-bus.OrderPlaced.v2"))
+    c = _mutated_catalog(tmp_path, bump)
+    files = build(c, tmp_path / "out")
+    assert "catalog/channels/payments-sub.OrderPlaced.v1/index.mdx" in files
+    assert "catalog/channels/payments-sub.OrderPlaced.v2/index.mdx" not in files
+    assert {"catalog/channels/orders-bus.OrderPlaced.v1/index.mdx", "catalog/channels/orders-bus.OrderPlaced.v2/index.mdx"} <= set(files)
+    assert "catalog/events/OrderPlaced/versioned/1/odcs.yaml" in files
+    assert json.loads(files["subscribers/payments-order-placed.json"])["filter"]["detail-type"] == ["OrderPlaced.v1"]
+    assert run_checks.run(c, only="check_channel_topology")["check_channel_topology"] == []
+
+
+def test_forward_rule_reference_on_channel_pages_matches_split_files(tmp_path):
+    import frontmatter
+    files = build(twelve_public(tmp_path), tmp_path / "split", "--pattern-limit", "160")
+    parts = sorted(k for k in files if k.startswith("rules/orders-public-forward.part-"))
+    page = frontmatter.loads(files["catalog/channels/orders-bus.OrderPlaced.v1/index.mdx"])
+    assert page["x-forward-rules"] == parts and all(p in files for p in page["x-forward-rules"])
+
+
+def test_misspelled_only_fails():
+    r = subprocess.run(["uv", "run", str(CHECKS / "run_checks.py"), "--catalog", str(CATALOG), "--only", "check_channel_topolgy"],
+                       capture_output=True, text=True)
+    assert r.returncode != 0 and "matches no check" in r.stderr
+
+
+def test_example_check_uses_the_generators_ciphertext_schema(tmp_path):
+    def loosen(c: Path):
+        ex = c / "events/OrderPlaced/examples/order-placed.json"
+        doc = json.loads(ex.read_text())
+        doc["detail"]["customerEmail"] = {"enc": "v1", "kid": "", "ct": "", "extra": 1}
+        ex.write_text(json.dumps(doc))
+    fails = run_checks.run(_mutated_catalog(tmp_path, loosen), only="check_examples_match_schema")["check_examples_match_schema"]
+    assert fails, "an envelope the Firehose validator would quarantine must fail the example check"
+
+
 # ---------------------------------------------------------------- external linters (need npx / uvx)
 
 

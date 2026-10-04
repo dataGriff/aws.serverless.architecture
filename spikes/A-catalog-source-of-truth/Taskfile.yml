@@ -45,7 +45,7 @@ tasks:
   odcs:lint:
     desc: Lint the generated ODCS contracts (ODCS v3.0.2 JSON Schema via datacontract-cli)
     cmds:
-      - for f in catalog/events/*/odcs.yaml; do uvx --from datacontract-cli datacontract lint $f || exit 1; done
+      - for f in $(find catalog/events -name odcs.yaml | sort); do uvx --from datacontract-cli datacontract lint $f || exit 1; done
   test:
     desc: Behavioural tests (includes the slow spectral/odcs ones)
     cmds: ["{{.PYTEST}}"]

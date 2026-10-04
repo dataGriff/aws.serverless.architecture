@@ -22,6 +22,6 @@ x-targets:
 - order-service
 ---
 
-The orders domain's subscriber on [[channel|central-bus]] for `PaymentCaptured.v1` (ADR-021). Generated from `receives[]`: the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. Never targets a domain bus.
+The orders domain's subscriber on the physical bus `central-bus` for `PaymentCaptured.v1` (ADR-021), fed by [[channel|central-bus.PaymentCaptured.v1]]. Generated from `receives[]`: the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. Never targets a domain bus.
 
 <ChannelInformation />

@@ -21,6 +21,6 @@ x-subscribers:
 - subscribers/orders-payment-captured.json
 ---
 
-Logical channel: `detail-type: PaymentCaptured.v1` on [[channel|central-bus]]. Arrives from [[channel|payments-bus.PaymentCaptured.v1]] through the forward rule. 1 subscriber(s) deliver it to consumer targets in their own accounts; there is no fan-out to domain buses.
+Logical channel: `detail-type: PaymentCaptured.v1` on the physical bus `central-bus` (EventBridge Custom Event Bus, platform account). Arrives from [[channel|payments-bus.PaymentCaptured.v1]] through the forward rule. 1 subscriber(s) deliver it to consumer targets in their own accounts; there is no fan-out to domain buses.
 
 <ChannelInformation />

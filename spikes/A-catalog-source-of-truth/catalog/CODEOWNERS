@@ -7,7 +7,8 @@
 /events/order.aggregate.updated/ @example/orders-team
 /commands/PlaceOrder/            @example/orders-team
 /queries/GetOrder/               @example/orders-team
-/channels/orders-bus/            @example/orders-team
+/channels/orders-bus.*/          @example/orders-team
+/channels/orders-sub.*/          @example/orders-team
 /channels/orders-api/            @example/orders-team
 /data-products/orders-events-silver/   @example/orders-team
 /schemas/orders/                 @example/orders-team
@@ -15,11 +16,12 @@
 /domains/payments/               @example/payments-team
 /services/payment-service/       @example/payments-team
 /events/PaymentCaptured/         @example/payments-team
-/channels/payments-bus/          @example/payments-team
+/channels/payments-bus.*/        @example/payments-team
+/channels/payments-sub.*/        @example/payments-team
 /data-products/payments-events-silver/ @example/payments-team
 
 /schemas/*.json                  @example/platform-team
-/channels/central-bus/           @example/platform-team
+/channels/central-bus.*/         @example/platform-team
 /teams/                          @example/platform-team
 /eventcatalog.config.js          @example/platform-team
 /CODEOWNERS                      @example/platform-team

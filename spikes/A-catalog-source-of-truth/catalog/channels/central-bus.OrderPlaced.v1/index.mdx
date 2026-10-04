@@ -21,6 +21,6 @@ x-subscribers:
 - subscribers/payments-order-placed.json
 ---
 
-Logical channel: `detail-type: OrderPlaced.v1` on [[channel|central-bus]]. Arrives from [[channel|orders-bus.OrderPlaced.v1]] through the forward rule. 1 subscriber(s) deliver it to consumer targets in their own accounts; there is no fan-out to domain buses.
+Logical channel: `detail-type: OrderPlaced.v1` on the physical bus `central-bus` (EventBridge Custom Event Bus, platform account). Arrives from [[channel|orders-bus.OrderPlaced.v1]] through the forward rule. 1 subscriber(s) deliver it to consumer targets in their own accounts; there is no fan-out to domain buses.
 
 <ChannelInformation />

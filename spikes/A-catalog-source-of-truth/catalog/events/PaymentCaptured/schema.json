@@ -7,7 +7,7 @@
     "paymentId": { "type": "string", "format": "uuid", "x-pii": "none" },
     "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
     "customerId": { "type": "string", "x-pii": "indirect" },
-    "amount": { "$ref": "../../schemas/Money.json", "x-pii": "none" },
+    "amount": { "$ref": "https://platform.example/schemas/Money.json", "x-pii": "none" },
     "capturedAt": { "type": "string", "format": "date-time", "x-pii": "none" },
     "attempt": { "type": "integer", "minimum": 1, "x-pii": "none" }
   },

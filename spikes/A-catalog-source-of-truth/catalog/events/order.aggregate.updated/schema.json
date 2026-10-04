@@ -4,7 +4,7 @@
   "title": "order.aggregate.updated",
   "type": "object",
   "properties": {
-    "order": { "$ref": "../../schemas/orders/Order.json", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "order": { "$ref": "https://platform.example/schemas/orders/Order.json", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
     "changedFields": { "type": "array", "items": { "type": "string" }, "x-pii": "none" }
   },
   "required": ["order", "changedFields"],

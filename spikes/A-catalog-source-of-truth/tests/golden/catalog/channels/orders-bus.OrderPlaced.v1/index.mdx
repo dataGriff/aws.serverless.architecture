@@ -16,9 +16,10 @@ x-physical-channel: orders-bus
 x-detail-type: OrderPlaced.v1
 x-source: orders.order-service
 x-visibility: public
-x-forward-rule: rules/orders-public-forward.json
+x-forward-rules:
+- rules/orders-public-forward.json
 ---
 
-Logical channel: `detail-type: OrderPlaced.v1` on the physical bus [[channel|orders-bus]]. The generated rule `rules/orders-public-forward.json` forwards it to central-bus (the one bus-to-bus hop AWS allows); consumers in other domains subscribe on central (see the route).
+Logical channel: `detail-type: OrderPlaced.v1` on the physical bus `orders-bus` (EventBridge Classic, orders account). The generated rule(s) `rules/orders-public-forward.json` forward it to central-bus (the one bus-to-bus hop AWS allows); consumers in other domains subscribe on central (see the route).
 
 <ChannelInformation />
