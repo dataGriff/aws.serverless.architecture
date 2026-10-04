@@ -3,7 +3,7 @@
 name: pages
 on:
   push:
-    branches: [main, worktree-spike-a]   # drop worktree-spike-a once the spike PR merges
+    branches: [main]
     paths:
       - "spikes/A-catalog-source-of-truth/catalog/**"
       - ".github/workflows/pages.yml"
