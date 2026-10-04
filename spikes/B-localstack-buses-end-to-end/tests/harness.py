@@ -23,14 +23,31 @@ sqs = boto3.client("sqs", **_cfg)
 TF_DIR = Path(__file__).resolve().parents[1] / "terraform" / "envs" / "local"
 
 
-def queues() -> dict[str, str]:
-    cache = Path(__file__).resolve().parents[1] / ".queues.json"
+def _tf_output(name: str) -> dict[str, str]:
+    cache = Path(__file__).resolve().parents[1] / f".{name}.json"
     if cache.exists():
         return json.loads(cache.read_text())
-    out = subprocess.check_output(["terraform", "output", "-json", "queues"], cwd=TF_DIR)
+    out = subprocess.check_output(["terraform", "output", "-json", name], cwd=TF_DIR)
     q = json.loads(out)
     cache.write_text(json.dumps(q))
     return q
+
+
+def queues() -> dict[str, str]:
+    return _tf_output("queues")
+
+
+def dlqs() -> dict[str, str]:
+    """rule name -> DLQ url, for every bus-to-bus target plus the broken SQS target."""
+    return _tf_output("dlqs")
+
+
+def dlq_count(rule: str) -> int:
+    """Approximate number of messages sitting on the DLQ of `rule` (messages are left in place)."""
+    attrs = sqs.get_queue_attributes(QueueUrl=dlqs()[rule],
+                                     AttributeNames=["ApproximateNumberOfMessages",
+                                                     "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
+    return int(attrs["ApproximateNumberOfMessages"]) + int(attrs["ApproximateNumberOfMessagesNotVisible"])
 
 
 def envelope(**extra) -> dict:
@@ -86,7 +103,7 @@ def count_deliveries(queue_url: str, event_id: str, settle: float = 10.0) -> int
 
 
 def purge_all() -> None:
-    for url in queues().values():
+    for url in {**queues(), **dlqs()}.values():
         try:
             sqs.purge_queue(QueueUrl=url)
         except Exception:

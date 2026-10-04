@@ -10,7 +10,11 @@ __pycache__/
 .build/
 # spike runtime artefacts
 spikes/B-localstack-buses-end-to-end/.queues.json
+spikes/B-localstack-buses-end-to-end/.dlqs.json
 spikes/A-catalog-source-of-truth/catalog/node_modules/
 spikes/A-catalog-source-of-truth/catalog/.eventcatalog-core/
 spikes/A-catalog-source-of-truth/catalog/dist/
 spikes/A-catalog-source-of-truth/generated/
+
+# claude worktrees
+.claude/worktrees/

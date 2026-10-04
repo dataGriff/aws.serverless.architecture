@@ -1,6 +1,8 @@
 services:
   localstack:
-    image: localstack/localstack:latest
+    # Pinned. `latest` (2026.x) exits with "License activation failed" unless LOCALSTACK_AUTH_TOKEN is set;
+    # 4.x is the last Community line. See findings.md.
+    image: localstack/localstack:4
     ports:
       - "4566:4566"
     environment:

@@ -44,20 +44,30 @@ locals {
   patterns = "${path.module}/../../../patterns" # SPIKE: replaced in spike C by generated/local/
   pattern  = { for f in fileset(local.patterns, "*.json") : trimsuffix(f, ".json") => jsondecode(file("${local.patterns}/${f}")) }
   domains  = ["orders", "payments"]
+
+  # One LocalStack account plays every role. The policies are still written cross-account style
+  # (principal = account id) so the policy shape is exercised even though the boundary is not.
+  account_id       = "000000000000"
+  platform_account = local.account_id
+  domain_accounts  = { for d in local.domains : d => local.account_id }
 }
 
 # ---- Buses -------------------------------------------------------------------
+# central: every domain account may PutEvents (their public-forward rules).
 module "central_bus" {
-  source = "../../modules/event-bus"
-  name   = "central-bus"
-  tags   = local.tags
+  source                = "../../modules/event-bus"
+  name                  = "central-bus"
+  put_events_principals = distinct([for d in local.domains : "arn:aws:iam::${local.domain_accounts[d]}:root"])
+  tags                  = local.tags
 }
 
+# domain: only the platform account may PutEvents (its fan-out rule).
 module "domain_bus" {
-  for_each = toset(local.domains)
-  source   = "../../modules/event-bus"
-  name     = "${each.key}-bus"
-  tags     = local.tags
+  for_each              = toset(local.domains)
+  source                = "../../modules/event-bus"
+  name                  = "${each.key}-bus"
+  put_events_principals = ["arn:aws:iam::${local.platform_account}:root"]
+  tags                  = local.tags
 }
 
 # ---- Domain -> central: public-forward --------------------------------------
@@ -152,5 +162,15 @@ output "queues" {
     payments_public_forward_dlq     = module.public_forward["payments"].dlq_url
   }
 }
+output "dlqs" {
+  value = {
+    central-broken-target   = module.broken_target.dlq_url
+    orders-public-forward   = module.public_forward["orders"].dlq_url
+    payments-public-forward = module.public_forward["payments"].dlq_url
+    orders-fan-out          = module.fan_out["orders"].dlq_url
+    payments-fan-out        = module.fan_out["payments"].dlq_url
+  }
+}
+output "broken_target_dlq_url" { value = module.broken_target.dlq_url }
 output "fan_out_variant" { value = var.fan_out_variant }
 output "pattern_sizes" { value = { for k, v in local.pattern : k => length(jsonencode(v)) } }
