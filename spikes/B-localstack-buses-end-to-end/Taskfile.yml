@@ -42,7 +42,7 @@ tasks:
   test:
     desc: Run the spike tests (excludes the transformer test unless TRANSFORMER=true)
     cmds:
-      - uv run --with boto3 --with pytest pytest -q tests -m "not transformer" {{.CLI_ARGS}}
+      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer" {{.CLI_ARGS}}
   test-transformer:
     desc: Apply with the transformer rule and run only that test
     cmds:
@@ -66,6 +66,10 @@ tasks:
     desc: "LocalStack feature probes (archive/replay, pattern operators) — prints a table for findings.md"
     cmds:
       - uv run --with boto3 python3 tests/probe_localstack.py
+  query:
+    desc: "DuckDB over the central archive in S3: task query  (or task query -- \"SELECT ... FROM archive\")"
+    cmds:
+      - uv run --with boto3 --with duckdb python3 tests/query_archive.py {{.CLI_ARGS}}
   depths:
     desc: Depth of every queue (probes, consumers, DLQs)
     cmds:

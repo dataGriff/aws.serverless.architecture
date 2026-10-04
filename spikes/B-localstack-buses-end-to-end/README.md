@@ -7,9 +7,10 @@ Prompt: `docs/architecture/prompts/spikes/B-localstack-buses-end-to-end.md` (or 
 mise install          # terraform, task, uv, awscli (root .mise.toml)
 task up               # LocalStack Community 4.14.0 (pinned; `latest` needs a licence token)
 task up LICENSED=true # LocalStack 2026.09.0 with ENFORCE_IAM; needs LOCALSTACK_AUTH_TOKEN exported (never commit it)
-task apply            # 3 buses · forward + fan-out rules · consumer rules · probes · broken target
-task test             # 12 tests; names are the contract (11 pass, 1 xfail on LocalStack)
+task apply            # 3 buses · forward + fan-out rules · consumer rules · probes · broken target · S3 archiver
+task test             # 15 tests; names are the contract (14 pass, 1 xfail on LocalStack)
 task probe            # pattern operators, archive/replay, ordering — prints a table
+task query            # DuckDB over the S3 archive written by the central archiver Lambda (stretch)
 task test-transformer # re-applies with the transformer rule and runs that one test (xfail on LocalStack)
 task send -- events/order-placed.json && task dlq
 task depths           # every queue's depth, DLQs included

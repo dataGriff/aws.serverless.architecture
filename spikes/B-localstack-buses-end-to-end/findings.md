@@ -13,7 +13,8 @@ Run on 2026-10-04 against LocalStack Community **4.14.0** (`localstack/localstac
 
 ```sh
 mise install                                 # terraform, task, uv, awscli
-task -d spikes/B-localstack-buses-end-to-end reset   # down → up → apply → test   (11 passed, 1 xfailed, ~2 min apply + ~2 min tests)
+task -d spikes/B-localstack-buses-end-to-end reset   # down → up → apply → test   (14 passed, 1 xfailed, ~2 min apply + ~2 min tests)
+task -d spikes/B-localstack-buses-end-to-end query   # DuckDB over the S3 archive: what flowed through central
 task -d spikes/B-localstack-buses-end-to-end probe   # pattern operators, archive/replay, ordering → markdown table
 task -d spikes/B-localstack-buses-end-to-end apply FAN_OUT=enumerated && task -d spikes/B-localstack-buses-end-to-end test
 task -d spikes/B-localstack-buses-end-to-end test-transformer                  # 1 xfailed (see below)
@@ -50,7 +51,34 @@ task -d spikes/B-localstack-buses-end-to-end up LICENSED=true ENFORCE_IAM=0   # 
 | envelope preserved across hops (`source`, `detail-type`, `detail`, `time` equal; `id` differs) | yes | `test_envelope_preserved_across_two_hops` | AWS assigns a new `id` and ingestion time per bus for the new Custom Event Bus ([docs](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus-target-bus.html)); Classic `time` behaviour unverified. **Sandbox.** |
 | pattern sizes | all < 80 bytes | `test_pattern_sizes_under_4kb`, `task sizes` | Generated patterns will stay tiny: fan-out is one `anything-but`, forward is one prefix + a detail-type list. |
 | Terraform (hashicorp/aws 6.67) against LocalStack | yes | `task apply` → 65 resources, ~2 min; `aws_sqs_queue_policy` creates take ~25 s each (LocalStack, not Terraform) | — |
-| Lambda archiver stretch (S3 + DuckDB) | not built | compose logs `LAMBDA_DOCKER_NETWORK=host is currently not supported with the new lambda provider` | Out of time-box; Spike B's question did not need it. |
+| Lambda archiver stretch (S3 + DuckDB) | **yes** | `test_archiver_writes_every_central_event_to_s3`, `test_internal_event_is_never_archived`, `test_duckdb_reads_archive_with_hive_partitions`; `task query` | See "Stretch: archive" below. The starter's `LAMBDA_DOCKER_NETWORK=host` had to go: it makes every Lambda container fail with `Unable to detect IP address … in network host`. |
+
+## Stretch: archive — Lambda on central → S3, read with DuckDB
+
+A rule on `central-bus` matching everything (`patterns/probe-all.json`) invokes a 10-line Lambda (`terraform/modules/bus-s3-archiver/src/handler.py`) that writes each event as one JSON object to `s3://central-archive/raw/source=<source>/detail_type=<detail-type>/<id>.json`. It stands in for ADR-009's Firehose stream, which LocalStack Community does not have, and it is what "what flowed" looks like after a `task test`:
+
+```
+$ task query
+┌──────────────────────────┬──────────────────────┬────────┬─────────────────────┬─────────────────────┐
+│          source          │     detail_type      │ events │     first_seen      │      last_seen      │
+├──────────────────────────┼──────────────────────┼────────┼─────────────────────┼─────────────────────┤
+│ orders.order-service     │ OrderPlaced.v1       │      9 │ 2026-10-04 16:14:02 │ 2026-10-04 16:15:49 │
+│ payments.payment-service │ PaymentCaptured.v1   │      2 │ 2026-10-04 16:14:48 │ 2026-10-04 16:15:58 │
+│ platform.spike           │ BrokenTargetProbe.v1 │      1 │ 2026-10-04 16:15:25 │ 2026-10-04 16:15:25 │
+└──────────────────────────┴──────────────────────┴────────┴─────────────────────┴─────────────────────┘
+```
+
+| Claim | Evidence |
+| --- | --- |
+| every public event that reaches central is archived, raw, under Hive partitions, with the `central-archive` DLQ at 0 | `test_archiver_writes_every_central_event_to_s3` |
+| internal events never reach the archive (they never reach central) | `test_internal_event_is_never_archived` |
+| DuckDB reads the bucket straight from LocalStack's S3 via `httpfs` (path-style, test creds), `hive_partitioning=true` turns the prefixes into `source` / `detail_type` columns, and `detail.*` is queryable as a struct | `test_duckdb_reads_archive_with_hive_partitions`; `task query -- "SELECT detail.correlationId, time FROM archive ORDER BY time"` |
+| `read_json_auto` infers `detail.eventId` as `UUID`, not `VARCHAR` | same test; the compactor must pin column types from the catalog schema (ADR-011's `d_*` columns) rather than trust inference |
+| `order.aggregate.updated` (internal) is absent from the archive; `BrokenTargetProbe.v1` is present because it was put on central directly | `task query` after `task test` |
+| Lambda cold start inside LocalStack is ~2 s; events land in S3 within ~3 s of `PutEvents` | `archived()` polls at 1 s and succeeds on the 2nd–3rd poll |
+| the at-least-once duplicate from `test_duplicate_put_is_delivered_twice` is two objects in the archive with the same `correlationId` and `time` and different `id`s | `task query -- "SELECT detail.correlationId, time FROM archive ORDER BY time DESC LIMIT 5"` shows the pair; this is the row ADR-011's read-time `QUALIFY row_number() OVER (PARTITION BY event_id)` exists to collapse |
+
+What this does not prove: Firehose buffering, dynamic partitioning or the validation transform (ADR-009), Object Lock or CMKs (ADR-010), or compaction (ADR-011). It proves the *shape* the data layer reads — one object per event, Hive prefixes, DuckDB over S3 — works end to end on LocalStack, and gives Spike C and Step 1 a working `duck()` helper and `task query` to start from.
 
 ## Second pass: licensed image (LocalStack 2026.9.0, `task up LICENSED=true`)
 

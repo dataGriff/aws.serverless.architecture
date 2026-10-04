@@ -12,11 +12,15 @@ provider "aws" {
   skip_credentials_validation = true
   skip_metadata_api_check     = true
   skip_requesting_account_id  = true
+  s3_use_path_style           = true
   endpoints {
     events = var.localstack_endpoint
     sqs    = var.localstack_endpoint
     iam    = var.localstack_endpoint
     sts    = var.localstack_endpoint
+    s3     = var.localstack_endpoint
+    lambda = var.localstack_endpoint
+    logs   = var.localstack_endpoint
   }
 }
 
@@ -129,6 +133,15 @@ module "broken_target" {
   tags               = local.tags
 }
 
+# ---- Stretch: raw archiver on central -> S3, inspected with DuckDB (stands in for Firehose) ----
+module "central_archive" {
+  source        = "../../modules/bus-s3-archiver"
+  name          = "central-archive"
+  bus_name      = module.central_bus.name
+  event_pattern = local.pattern["probe-all"]
+  tags          = local.tags
+}
+
 # ---- Optional: input transformer on a forward rule (verify support for bus targets)
 module "transformer_forward" {
   count           = var.enable_transformer_rule ? 1 : 0
@@ -162,8 +175,10 @@ output "queues" {
     payments_public_forward_dlq     = module.public_forward["payments"].dlq_url
   }
 }
+output "archive_bucket" { value = module.central_archive.bucket }
 output "dlqs" {
   value = {
+    central-archive         = module.central_archive.dlq_url
     central-broken-target   = module.broken_target.dlq_url
     orders-public-forward   = module.public_forward["orders"].dlq_url
     payments-public-forward = module.public_forward["payments"].dlq_url

@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from harness import (count_deliveries, dlq_count, drain, envelope, events, expect, expect_none, put, purge_all, queues)
+from harness import (archived, archived_ids, count_deliveries, dlq_count, drain, duck, envelope, events, expect,
+                     expect_none, put, purge_all, queues)
 
 Q = queues()
 PATTERNS = Path(__file__).resolve().parents[1] / "patterns"
@@ -136,6 +137,34 @@ def test_anything_but_prefix_supported_or_fallback():
         "id": "2", "detail-type": "OrderPlaced.v1", "source": "orders.order-service",
         "account": "000000000000", "time": "2026-10-04T15:00:00Z", "region": "eu-west-2", "resources": [], "detail": {}}))
     assert r2["Result"] is False, "own-prefix exclusion did not hold"
+
+
+# ---- stretch: archiver Lambda on central -> S3, read back with DuckDB ------------------------------
+
+def test_archiver_writes_every_central_event_to_s3():
+    d = put("orders-bus", "orders.order-service", "OrderPlaced.v1", envelope(total=6.0))
+    obj = archived(d["eventId"])
+    assert obj["source"] == "orders.order-service" and obj["detail"] == d
+    assert obj["_key"] == f"raw/source=orders.order-service/detail_type=OrderPlaced.v1/{obj['id']}.json"
+    assert dlq_count("central-archive") == 0
+
+
+def test_internal_event_is_never_archived():
+    d = put("orders-bus", "orders.order-service", "order.aggregate.updated", envelope(row={"internal": True}))
+    expect(Q["orders_probe"], d["eventId"])
+    time.sleep(5)
+    assert d["eventId"] not in archived_ids()
+
+
+def test_duckdb_reads_archive_with_hive_partitions():
+    d = put("payments-bus", "payments.payment-service", "PaymentCaptured.v1", envelope(amount=7.0))
+    archived(d["eventId"])
+    con = duck()
+    rows = con.execute("SELECT source, detail_type, count(*) FROM archive GROUP BY ALL ORDER BY 1, 2").fetchall()
+    assert ("payments.payment-service", "PaymentCaptured.v1") in {(r[0], r[1]) for r in rows}, rows
+    one = con.execute("SELECT detail.eventId, detail.amount FROM archive WHERE detail.eventId = ?", [d["eventId"]]).fetchone()
+    # read_json_auto infers eventId as UUID, not VARCHAR — a typed column for free, but a cast the compactor must pin
+    assert (str(one[0]), one[1]) == (d["eventId"], 7.0)
 
 
 @pytest.mark.transformer

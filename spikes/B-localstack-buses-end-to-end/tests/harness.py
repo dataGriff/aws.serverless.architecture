@@ -19,6 +19,7 @@ _cfg = dict(endpoint_url=ENDPOINT, region_name="eu-west-2",
             aws_access_key_id="test", aws_secret_access_key="test")
 events = boto3.client("events", **_cfg)
 sqs = boto3.client("sqs", **_cfg)
+s3 = boto3.client("s3", **_cfg)
 
 TF_DIR = Path(__file__).resolve().parents[1] / "terraform" / "envs" / "local"
 
@@ -108,3 +109,46 @@ def purge_all() -> None:
             sqs.purge_queue(QueueUrl=url)
         except Exception:
             pass
+
+
+# ---- archive (stretch): S3 written by the central archiver Lambda, read with DuckDB ------------
+
+def archive_bucket() -> str:
+    out = subprocess.check_output(["terraform", "output", "-raw", "archive_bucket"], cwd=TF_DIR)
+    return out.decode().strip()
+
+
+def archived(event_id: str, timeout: float = 20.0) -> dict:
+    """Wait for the archiver to land the event in S3; return the object as a dict."""
+    bucket, deadline = archive_bucket(), time.time() + timeout
+    while time.time() < deadline:
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="raw/"):
+            for obj in page.get("Contents", []):
+                body = json.loads(s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read())
+                if body.get("detail", {}).get("eventId") == event_id:
+                    body["_key"] = obj["Key"]
+                    return body
+        time.sleep(1)
+    raise AssertionError(f"eventId {event_id} was not archived to s3://{bucket}/raw/ within {timeout}s")
+
+
+def archived_ids() -> set[str]:
+    bucket, ids = archive_bucket(), set()
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="raw/"):
+        for obj in page.get("Contents", []):
+            body = json.loads(s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read())
+            ids.add(body.get("detail", {}).get("eventId"))
+    return ids
+
+
+def duck():
+    """DuckDB connection pointed at LocalStack's S3 (httpfs, path-style, test creds)."""
+    import duckdb
+    host = ENDPOINT.split("://", 1)[1]
+    con = duckdb.connect()
+    con.execute("INSTALL httpfs; LOAD httpfs;")
+    con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; "
+                "SET s3_region='eu-west-2'; SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
+    con.execute(f"CREATE VIEW archive AS SELECT * FROM read_json_auto('s3://{archive_bucket()}/raw/**/*.json', "
+                "hive_partitioning=true, union_by_name=true)")
+    return con
