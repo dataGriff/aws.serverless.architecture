@@ -1,26 +1,33 @@
 {
   "consumers": {
-    "rules/orders-consumer-payment-captured.json": [
+    "subscribers/orders-payment-captured.json": [
       "order-service"
     ],
-    "rules/payments-consumer-order-placed.json": [
+    "subscribers/payments-order-placed.json": [
       "payment-service"
     ]
   },
   "files": [
     "archive/routing-map.json",
+    "catalog/channels/central-bus.OrderPlaced.v1/index.mdx",
+    "catalog/channels/central-bus.PaymentCaptured.v1/index.mdx",
+    "catalog/channels/orders-bus.OrderPlaced.v1/index.mdx",
+    "catalog/channels/orders-bus.order.aggregate.updated.v1/index.mdx",
+    "catalog/channels/orders-sub.PaymentCaptured.v1/index.mdx",
+    "catalog/channels/payments-bus.PaymentCaptured.v1/index.mdx",
+    "catalog/channels/payments-sub.OrderPlaced.v1/index.mdx",
     "catalog/events/OrderPlaced/odcs.yaml",
     "catalog/events/PaymentCaptured/odcs.yaml",
     "parquet/OrderPlaced.v1.json",
     "parquet/PaymentCaptured.v1.json",
-    "rules/orders-consumer-payment-captured.json",
     "rules/orders-fan-out.enumerated.json",
     "rules/orders-fan-out.json",
     "rules/orders-public-forward.json",
-    "rules/payments-consumer-order-placed.json",
     "rules/payments-fan-out.enumerated.json",
     "rules/payments-fan-out.json",
     "rules/payments-public-forward.json",
+    "subscribers/orders-payment-captured.json",
+    "subscribers/payments-order-placed.json",
     "validation/orders.json",
     "validation/payments.json"
   ],
@@ -28,10 +35,12 @@
     "validation",
     "parquet",
     "rules/*-public-forward*",
-    "rules/*-fan-out*",
     "rules/*-consumer-*",
+    "subscribers",
     "archive",
-    "catalog/events/*/odcs.yaml"
+    "catalog/channels/*",
+    "catalog/events/*/odcs.yaml",
+    "rules/*-fan-out*  (platform-local stub only)"
   ],
   "splitRules": []
 }

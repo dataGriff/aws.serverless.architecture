@@ -2,7 +2,7 @@
 id: order-service
 name: Order service
 version: 1.0.0
-summary: FIXTURE — publishes straight to central-bus and consumes from another domain's bus.
+summary: FIXTURE — publishes to the physical bus and to central directly, and consumes from another domain's bus.
 owners:
   - orders-team
 sends:
@@ -14,12 +14,12 @@ sends:
   - id: order.aggregate.updated
     version: 1.0.0
     to:
-      - id: orders-bus
+      - id: orders-bus.order.aggregate.updated.v1
 receives:
   - id: PaymentCaptured
     version: 1.0.0
     from:
-      - id: payments-bus
+      - id: payments-bus.PaymentCaptured.v1
   - id: PlaceOrder
     version: 1.0.0
     from:

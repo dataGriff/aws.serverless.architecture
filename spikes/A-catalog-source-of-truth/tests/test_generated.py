@@ -32,6 +32,8 @@ def build(catalog: Path, out: Path, *extra) -> dict[str, str]:
                    check=True, capture_output=True, text=True)
     files = {str(p.relative_to(out)): p.read_text() for p in out.rglob("*") if p.is_file()}
     files.update({"catalog/" + str(p.relative_to(catalog)): p.read_text() for p in catalog.glob("events/**/odcs.yaml")})
+    files.update({"catalog/" + str(p.relative_to(catalog)): p.read_text() for p in catalog.glob("channels/*/index.mdx")
+                  if "x-generated: catalog-gen" in p.read_text()})
     return files
 
 
@@ -112,6 +114,8 @@ def test_flip_visibility_changes_exactly_the_expected_files(tmp_path):
         "validation/orders.json",
         "parquet/order.aggregate.updated.v1.json",
         "catalog/events/order.aggregate.updated/odcs.yaml",
+        "catalog/channels/orders-bus.order.aggregate.updated.v1/index.mdx",      # gains the route to central
+        "catalog/channels/central-bus.order.aggregate.updated.v1/index.mdx",     # new logical channel on central
         "deploy-order.json",
     }
     assert changed(before, after) == expected
@@ -126,15 +130,49 @@ def test_add_receives_changes_only_consumer_pattern_and_manifest(tmp_path):
         md.write_text(md.read_text().replace("receives:", "receives:\n  - id: CustomerRegistered\n    version: 1.0.0", 1))
 
     after = build(_mutated_catalog(tmp_path, subscribe), tmp_path / "after")
-    assert changed(before, after) == {"rules/payments-consumer-customer-registered.json", "deploy-order.json"}
-    assert json.loads(after["rules/payments-consumer-customer-registered.json"]) == {"detail-type": ["CustomerRegistered.v1"]}
-    assert json.loads(after["deploy-order.json"])["consumers"]["rules/payments-consumer-customer-registered.json"] == ["payment-service"]
+    # ADR-021: a cross-domain receives[] is a subscriber on central plus its logical channel, nothing on any bus rule.
+    assert changed(before, after) == {
+        "subscribers/payments-customer-registered.json",
+        "catalog/channels/payments-sub.CustomerRegistered.v1/index.mdx",
+        "deploy-order.json",
+    }
+    sub = json.loads(after["subscribers/payments-customer-registered.json"])
+    assert sub["filter"] == {"detail-type": ["CustomerRegistered.v1"]}
+    assert sub["retryPolicy"] == {"maximumRetryAttempts": 185, "maximumEventAgeInSeconds": 86400}
+    assert sub["targets"] == ["payment-service"]
+    assert json.loads(after["deploy-order.json"])["consumers"]["subscribers/payments-customer-registered.json"] == ["payment-service"]
 
 
 def test_consumer_rules_ignore_commands_and_queries(tmp_path):
     files = build(copy_catalog(tmp_path), tmp_path / "out")
-    assert not [k for k in files if "consumer-get-order" in k or "consumer-place-order" in k]
-    assert set(k for k in files if "-consumer-" in k) == {"rules/orders-consumer-payment-captured.json", "rules/payments-consumer-order-placed.json"}
+    assert not [k for k in files if "get-order" in k or "place-order" in k]
+    # Both receives[] in the catalog are cross-domain, so they are subscribers on central, not rules on a domain bus.
+    assert not [k for k in files if "-consumer-" in k]
+    assert set(k for k in files if k.startswith("subscribers/")) == {"subscribers/orders-payment-captured.json", "subscribers/payments-order-placed.json"}
+    sub = json.loads(files["subscribers/payments-order-placed.json"])
+    assert sub["filter"] == {"detail-type": ["OrderPlaced.v1"], "source": [{"prefix": "orders."}]}
+    assert sub["channels"] == ["payments-sub.OrderPlaced.v1"]
+
+
+def test_logical_channels_form_a_straight_line_per_event(tmp_path):
+    import frontmatter
+    files = build(copy_catalog(tmp_path), tmp_path / "out")
+    chans = {k.split("/")[2]: frontmatter.loads(v) for k, v in files.items() if k.startswith("catalog/channels/")}
+    assert set(chans) == {
+        "orders-bus.OrderPlaced.v1", "orders-bus.order.aggregate.updated.v1", "payments-bus.PaymentCaptured.v1",
+        "central-bus.OrderPlaced.v1", "central-bus.PaymentCaptured.v1",
+        "payments-sub.OrderPlaced.v1", "orders-sub.PaymentCaptured.v1",
+    }
+    route = lambda c: [r["id"] for r in chans[c].get("routes", [])]
+    assert route("orders-bus.OrderPlaced.v1") == ["central-bus.OrderPlaced.v1"]
+    assert route("central-bus.OrderPlaced.v1") == ["payments-sub.OrderPlaced.v1"]
+    assert route("payments-sub.OrderPlaced.v1") == []
+    assert route("orders-bus.order.aggregate.updated.v1") == [], "internal events never route to central"
+    for c, fm in chans.items():
+        assert fm["x-generated"] == "catalog-gen" and fm["x-physical-channel"] in ("orders-bus", "payments-bus", "central-bus"), c
+    # no physical channel ever appears as a route target or source: the graph is acyclic by construction
+    targets = {t for c in chans for t in route(c)}
+    assert targets <= set(chans) and not targets & {"orders-bus", "payments-bus", "central-bus"}
 
 
 # ---------------------------------------------------------------- pattern size
@@ -246,8 +284,11 @@ def test_explain_names_the_catalog_files_that_drive_a_generated_file(tmp_path):
     assert "emitter: emit_odcs" in r.stdout
     for src in ("events/OrderPlaced/schema.json", "events/OrderPlaced/data-product.yaml", "schemas/Money.json", "domains/orders"):
         assert src in r.stdout, r.stdout
-    r = gen("explain", c, out, "rules/payments-consumer-order-placed.json")
+    r = gen("explain", c, out, "subscribers/payments-order-placed.json")
+    assert "emitter: emit_subscribers" in r.stdout
     assert "services/payment-service" in r.stdout and "events/OrderPlaced" in r.stdout
+    r = gen("explain", c, out, "catalog/channels/central-bus.OrderPlaced.v1/index.mdx")
+    assert "emitter: emit_channels" in r.stdout and "services/payment-service" in r.stdout
     assert gen("explain", c, out, "rules/nothing.json").returncode == 1
 
 

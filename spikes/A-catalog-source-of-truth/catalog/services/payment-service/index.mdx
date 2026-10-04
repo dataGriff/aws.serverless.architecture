@@ -9,7 +9,7 @@ sends:
   - id: PaymentCaptured
     version: 1.0.0
     to:
-      - id: payments-bus
+      - id: payments-bus.PaymentCaptured.v1
   - id: GetOrder
     version: 1.0.0
     to:
@@ -18,7 +18,7 @@ receives:
   - id: OrderPlaced
     version: 1.0.0
     from:
-      - id: payments-bus
+      - id: payments-sub.OrderPlaced.v1
 repository:
   language: Python
   url: https://github.com/example/payment-service
@@ -28,7 +28,7 @@ x-bus: payments-bus
 
 ## Behaviour
 
-Consumes `OrderPlaced.v1` from `payments-bus` (delivered by the fan-out rule), decrypts `customerEmail` as a listed decryptor, captures funds and publishes `PaymentCaptured.v1`. Looks orders up with the generated client for `GetOrder`.
+Consumes `OrderPlaced.v1` through the payments domain's generated subscriber on central (`payments-sub.OrderPlaced.v1`: filter, retries, DLQ, delivered to this service's queue), decrypts `customerEmail` as a listed decryptor, captures funds and publishes `PaymentCaptured.v1` onto `payments-bus`. Looks orders up with the generated client for `GetOrder`.
 
 <CustomProperties title="Platform properties" />
 

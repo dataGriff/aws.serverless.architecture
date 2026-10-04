@@ -1,0 +1,27 @@
+{
+  "account": "payments",
+  "bus": "central-bus",
+  "channels": [
+    "payments-sub.OrderPlaced.v1"
+  ],
+  "deadLetterQueue": "payments-order-placed-dlq",
+  "filter": {
+    "detail-type": [
+      "OrderPlaced.v1"
+    ],
+    "source": [
+      {
+        "prefix": "orders."
+      }
+    ]
+  },
+  "maxBatchSize": 1,
+  "name": "payments-order-placed",
+  "retryPolicy": {
+    "maximumEventAgeInSeconds": 86400,
+    "maximumRetryAttempts": 185
+  },
+  "targets": [
+    "payment-service"
+  ]
+}

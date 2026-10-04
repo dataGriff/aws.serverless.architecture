@@ -22,7 +22,7 @@ x-pii:
 
 ## Routing
 
-`source` is `payments.payment-service`, `detail-type` is `PaymentCaptured.v1`. Public: forwarded to `central-bus`, fanned out to every other domain bus, archived to payments bronze and compacted to silver.
+`source` is `payments.payment-service`, `detail-type` is `PaymentCaptured.v1`. Published on `payments-bus.PaymentCaptured.v1`; the generated forward rule routes it to `central-bus.PaymentCaptured.v1`, the orders domain's subscriber (`orders-sub.PaymentCaptured.v1`) delivers it to order-service, and the Firehose subscriber archives it to payments bronze for compaction to silver.
 
 <CustomProperties title="Platform properties" />
 

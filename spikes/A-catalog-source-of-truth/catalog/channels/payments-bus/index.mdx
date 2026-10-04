@@ -2,7 +2,7 @@
 id: payments-bus
 name: Payments bus
 version: 1.0.0
-summary: The payments domain's own EventBridge bus. Receives every public event from other domains through fan-out; hosts the domain's consumer rules.
+summary: The payments domain's own EventBridge Classic bus. Every payments.* event is published here; public ones are forwarded to central-bus by the generated rule.
 owners:
   - payments-team
 address: arn:aws:events:{region}:{payments-account}:event-bus/payments-bus
@@ -16,12 +16,11 @@ parameters:
     description: Home region
   payments-account:
     description: Payments account id
-routes:
-  - id: central-bus
 x-owner-account: payments
-x-route-rule: payments-public-forward (generated; public events only)
+x-kind: classic
+x-forward-rule: rules/payments-public-forward.json
 ---
 
 <ChannelInformation />
 
-Every `payments.*` event is published here and only here. The generated public-forward rule routes the public ones to `central-bus`; consumer rules for this domain match what the fan-out rule delivers from `central-bus`.
+Physical anchor. Routing lives on the generated logical channels `payments-bus.<detail-type>`: public ones route to `central-bus.<detail-type>`; internal ones stop here. This domain receives other domains' events through its subscribers on central (`payments-sub.<detail-type>`), never through this bus.

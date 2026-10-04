@@ -4,18 +4,27 @@
 # ///
 """catalog-gen — Spike A.
 
-Reads an EventCatalog folder and writes deterministic JSON/YAML. Everything goes under --out except the ODCS
-contracts, which are written beside their event inside the catalog (data-contracts.md) so the site can render them;
-`check` covers both locations.
+Reads an EventCatalog folder and writes deterministic JSON/YAML. Everything goes under --out except two kinds of
+file that are written into the catalog so the site can render them, and that `check` covers like any other output:
+the ODCS contract beside each public event (data-contracts.md) and the per-event logical channel pages.
+
+Topology follows ADR-021 (proposed, from Spikes B and D): a service publishes to its domain's Classic bus; one
+generated forward rule carries the domain's public events to the central bus (the single bus-to-bus hop AWS allows);
+every cross-domain consumer gets a generated *subscriber* on central that delivers to the consumer's own target.
+Internal and own-domain events are consumed by rules on the domain bus.
 
     rules/{domain}-public-forward.json          detail-type list of the domain's public events (split at --pattern-limit)
-    rules/{domain}-fan-out.json                 source anything-but own prefix
-    rules/{domain}-fan-out.enumerated.json      source prefix list of every other domain
-    rules/{domain}-consumer-{event}.json        consumer rule on the domain's own bus, from services[].receives
+    rules/{domain}-fan-out.json                 ADR-001 fan-out pattern, kept for the platform-local Classic stub only
+    rules/{domain}-fan-out.enumerated.json      the enumerated alternative, for size comparison
+    rules/{domain}-consumer-{event}.json        consumer rule on the domain's own bus (same-domain events only)
+    subscribers/{domain}-{event}.json           subscriber on central per cross-domain receives[]: filter, retry, DLQ, targets
     archive/routing-map.json                    source prefix -> bronze bucket + public detail-types
     validation/{domain}.json                    envelope+payload schema per public event, direct fields as ciphertext envelopes
     parquet/{DetailType}.json                   silver column list per public event
     catalog/events/{Event}/odcs.yaml            ODCS v3 per public event, merged with data-product.yaml  (written into the catalog)
+    catalog/channels/{bus}.{DetailType}/        logical channel per event on its domain bus               (written into the catalog)
+    catalog/channels/central-bus.{DetailType}/  logical channel per public event on central                (written into the catalog)
+    catalog/channels/{domain}-sub.{DetailType}/ logical channel per subscriber                             (written into the catalog)
     deploy-order.json                           apply order, file list, consumer targets, split parts
 
     uv run catalog_gen.py build   --catalog ../catalog --out ../generated/local
@@ -38,6 +47,10 @@ import frontmatter
 import yaml
 
 CATALOG_PREFIX = "catalog/"   # generated files written into the catalog instead of --out
+GENERATED_MARK = "x-generated: catalog-gen"
+CENTRAL = "central-bus"
+PLATFORM_OWNERS = ["platform-team"]
+SUBSCRIBER_RETRY = {"maximumRetryAttempts": 185, "maximumEventAgeInSeconds": 86400}
 ENVELOPE_COLUMNS = [
     ("id", "string"), ("source", "string"), ("detail_type", "string"), ("bus_time", "timestamp[us,UTC]"),
     ("event_id", "string"), ("occurred_at", "timestamp[us,UTC]"), ("correlation_id", "string"),
@@ -76,7 +89,7 @@ class Event:
     overlay_path: Path | None
     deprecated: bool = False
     declared_source: str | None = None
-    channels: list[str] = field(default_factory=list)
+    summary: str = ""
 
     @property
     def detail_type(self) -> str:
@@ -106,6 +119,7 @@ class Domain:
     name: str
     owners: list[str]
     services: list[str]
+    bus: str
     path: Path
 
 
@@ -134,6 +148,9 @@ class Catalog:
     def events_named(self, name: str) -> list[Event]:
         return sorted((e for e in self.events.values() if e.name == name), key=lambda e: int(e.version))
 
+    def bus(self, domain: str) -> str:
+        return self.domains[domain].bus if domain in self.domains else f"{domain}-bus"
+
 
 def _ids(items) -> list[tuple[str, str]]:
     out = []
@@ -157,7 +174,7 @@ def load(catalog_dir: Path) -> Catalog:
     for md in sorted(catalog_dir.glob("domains/*/index.md*")):
         fm = frontmatter.load(md)
         svcs = [i for i, _ in _ids(fm.get("services"))]
-        cat.domains[fm["id"]] = Domain(fm["id"], list(fm.get("owners", [])), svcs, md.parent)
+        cat.domains[fm["id"]] = Domain(fm["id"], list(fm.get("owners", [])), svcs, _x(fm, "bus", f"{fm['id']}-bus"), md.parent)
         for s in svcs:
             service_domain[s] = fm["id"]
     for md in sorted(catalog_dir.glob("services/*/index.md*")):
@@ -173,12 +190,6 @@ def load(catalog_dir: Path) -> Catalog:
         cat.services[fm["id"]] = Service(fm["id"], domain, _ids(fm.get("sends")), _ids(fm.get("receives")),
                                          md.parent / spec if spec else None, md.parent)
     sender: dict[str, Service] = {}
-    sent_to: dict[str, list[str]] = {}
-    for md in sorted(catalog_dir.glob("services/*/index.md*")):
-        fm = frontmatter.load(md)
-        for s in fm.get("sends") or []:
-            if isinstance(s, dict):
-                sent_to.setdefault(s["id"], []).extend(i for i, _ in _ids(s.get("to")))
     for s in cat.services.values():
         for ev, _ in s.sends:
             sender.setdefault(ev, s)
@@ -200,7 +211,7 @@ def load(catalog_dir: Path) -> Catalog:
                    overlay=yaml.safe_load(overlay_path.read_text()) if overlay_path.exists() else None,
                    path=md.parent, schema_path=schema_path, overlay_path=overlay_path if overlay_path.exists() else None,
                    deprecated=bool(fm.get("deprecated")), declared_source=_x(fm, "source"),
-                   channels=sorted(set(sent_to.get(fm["id"], [])) | {i for i, _ in _ids(fm.get("channels"))}))
+                   summary=str(fm.get("summary") or "").strip())
         cat.events[ev.detail_type] = ev
     for folder, kind in (("commands", "command"), ("queries", "query")):
         for md in sorted(catalog_dir.glob(f"{folder}/*/index.md*")):
@@ -371,42 +382,89 @@ def emit_rules(cat: Catalog) -> dict[str, str]:
     return out
 
 
-def _consumer_rules(cat: Catalog) -> dict[str, tuple[dict, list[Path]]]:
-    """One rule per (consuming domain, event name) on the domain's own bus; received versions collapse into detail-type.
-    Commands and queries in receives[] are API operations, not bus subscriptions, and produce no rule."""
-    by_key: dict[tuple[str, str], dict] = {}
+@dataclass
+class Subscription:
+    """A consuming domain's interest in one event name: same-domain ones become a rule on the domain bus,
+    cross-domain (or unknown) ones become a subscriber on central (ADR-021)."""
+    domain: str
+    event: str
+    detail_types: list[str]
+    sources: list[str]
+    services: list[str]
+    paths: list[Path]
+    events: list[Event]
+
+    @property
+    def same_domain(self) -> bool:
+        return bool(self.events) and all(e.domain == self.domain for e in self.events)
+
+    @property
+    def pattern(self) -> dict:
+        p: dict = {"detail-type": self.detail_types}
+        if self.sources:
+            p["source"] = [{"prefix": s} for s in self.sources]
+        return p
+
+
+def subscriptions(cat: Catalog) -> list[Subscription]:
+    by_key: dict[tuple[str, str], Subscription] = {}
     for svc in sorted(cat.services.values(), key=lambda s: s.name):
         for ev_id, ver in svc.receives:
             if ev_id in cat.messages:
-                continue
+                continue   # a command/query is an API operation, not a bus subscription
+            sub = by_key.setdefault((svc.domain, ev_id), Subscription(svc.domain, ev_id, [], [], [], [], []))
+            sub.services.append(svc.name)
+            sub.paths.append(svc.path)
             known = cat.events_named(ev_id)
-            entry = by_key.setdefault((svc.domain, ev_id), {"detail_types": set(), "sources": set(), "paths": {svc.path}})
-            entry["paths"].add(svc.path)
             if not known:
                 major = ver.lstrip("^").split(".")[0]
-                entry["detail_types"].add(f"{ev_id}.v{major if major != 'latest' else '1'}")
+                sub.detail_types.append(f"{ev_id}.v{major if major != 'latest' else '1'}")
                 continue
             versions = [e for e in known if ver in ("latest", e.version, f"^{e.version}") or ver.split(".")[0] == e.version] or known[-1:]
             for e in versions:
-                entry["detail_types"].add(e.detail_type)
-                entry["sources"].add(e.source_prefix)
-                entry["paths"].add(e.path)
-    out = {}
-    for (domain, ev_id), entry in sorted(by_key.items()):
-        pattern: dict = {"detail-type": sorted(entry["detail_types"])}
-        if entry["sources"]:
-            pattern["source"] = [{"prefix": p} for p in sorted(entry["sources"])]
-        out[f"rules/{domain}-consumer-{kebab(ev_id)}.json"] = (pattern, sorted(entry["paths"]))
+                sub.detail_types.append(e.detail_type)
+                sub.sources.append(e.source_prefix)
+                sub.paths.append(e.path)
+                sub.events.append(e)
+    out = []
+    for sub in by_key.values():
+        sub.detail_types = sorted(set(sub.detail_types))
+        sub.sources = sorted(set(sub.sources))
+        sub.services = sorted(set(sub.services))
+        sub.paths = sorted(set(sub.paths))
+        out.append(sub)
+    return sorted(out, key=lambda s: (s.domain, s.event))
+
+
+def _consumer_rules(cat: Catalog) -> dict[str, tuple[dict, list[Path]]]:
+    return {f"rules/{s.domain}-consumer-{kebab(s.event)}.json": (s.pattern, s.paths) for s in subscriptions(cat) if s.same_domain}
+
+
+def emit_subscribers(cat: Catalog) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for s in subscriptions(cat):
+        if s.same_domain:
+            continue
+        _emit(out, f"subscribers/{s.domain}-{kebab(s.event)}.json", _j({
+            "bus": CENTRAL,
+            "name": f"{s.domain}-{kebab(s.event)}",
+            "account": s.domain,
+            "filter": s.pattern,
+            "retryPolicy": SUBSCRIBER_RETRY,
+            "deadLetterQueue": f"{s.domain}-{kebab(s.event)}-dlq",
+            "maxBatchSize": 1,
+            "targets": s.services,
+            "channels": [sub_channel(s.domain, d) for d in s.detail_types],
+        }), s.paths)
     return out
 
 
 def consumer_targets(cat: Catalog) -> dict[str, list[str]]:
-    targets: dict[str, set[str]] = {}
-    for svc in cat.services.values():
-        for ev_id, _ in svc.receives:
-            if ev_id not in cat.messages:
-                targets.setdefault(f"rules/{svc.domain}-consumer-{kebab(ev_id)}.json", set()).add(svc.name)
-    return {k: sorted(v) for k, v in sorted(targets.items())}
+    targets = {}
+    for s in subscriptions(cat):
+        rel = f"rules/{s.domain}-consumer-{kebab(s.event)}.json" if s.same_domain else f"subscribers/{s.domain}-{kebab(s.event)}.json"
+        targets[rel] = s.services
+    return dict(sorted(targets.items()))
 
 
 def emit_routing_map(cat: Catalog) -> dict[str, str]:
@@ -597,15 +655,132 @@ def emit_odcs(cat: Catalog) -> dict[str, str]:
     return out
 
 
+# ---------------------------------------------------------------- logical channels (ADR-021 topology)
+
+
+def bus_channel(cat: Catalog, ev: Event) -> str:
+    return f"{cat.bus(ev.domain)}.{ev.detail_type}"
+
+
+def central_channel(ev: Event) -> str:
+    return f"{CENTRAL}.{ev.detail_type}"
+
+
+def sub_channel(domain: str, detail_type: str) -> str:
+    return f"{domain}-sub.{detail_type}"
+
+
+def _channel_page(fm: dict, body: str) -> str:
+    return "---\n" + yaml.safe_dump(fm, sort_keys=False, allow_unicode=True, width=1000) + "---\n\n" + body.strip() + "\n"
+
+
+def emit_channels(cat: Catalog) -> dict[str, str]:
+    """One channel page per (event, physical bus) so every event's path is a straight line in the catalog graph:
+    {bus}.{dt} → central-bus.{dt} → {consumer}-sub.{dt}. Hand-written physical channels (orders-bus, central-bus...)
+    stay as anchors and never carry routes: the hub topology makes EventCatalog 4.12.3's renderer overflow."""
+    out: dict[str, str] = {}
+    subs = [s for s in subscriptions(cat) if not s.same_domain]
+    subs_by_dt: dict[str, list[Subscription]] = {}
+    for s in subs:
+        for dt in s.detail_types:
+            subs_by_dt.setdefault(dt, []).append(s)
+    for ev in sorted(cat.events.values(), key=lambda e: e.detail_type):
+        dom = cat.domains[ev.domain]
+        srcs = [ev.path, dom.path, cat.services[ev.service].path if ev.service in cat.services else ev.path]
+        fm = {
+            "id": bus_channel(cat, ev),
+            "name": f"{dom.bus} · {ev.detail_type}",
+            "version": "1.0.0",
+            "summary": f"{ev.detail_type} on {dom.bus} (EventBridge Classic, {ev.domain} account). {'Public: forwarded to central-bus by the generated rule.' if ev.visibility == 'public' else 'Internal: never leaves this bus.'}",
+            "owners": list(dom.owners),
+            "address": f"arn:aws:events:{{region}}:{{{ev.domain}-account}}:event-bus/{dom.bus}",
+            "protocols": ["eventbridge"],
+            "deliveryGuarantee": "at-least-once",
+        }
+        if ev.visibility == "public":
+            fm["routes"] = [{"id": central_channel(ev)}]
+        fm.update({
+            "x-generated": "catalog-gen",
+            "x-physical-channel": dom.bus,
+            "x-detail-type": ev.detail_type,
+            "x-source": ev.source,
+            "x-visibility": ev.visibility,
+            "x-forward-rule": f"rules/{ev.domain}-public-forward.json" if ev.visibility == "public" else None,
+        })
+        fm = {k: v for k, v in fm.items() if v is not None}
+        body = (f"Logical channel: `detail-type: {ev.detail_type}` on the physical bus [[channel|{dom.bus}]]. "
+                + (f"The generated rule `{fm['x-forward-rule']}` forwards it to central-bus (the one bus-to-bus hop AWS allows); "
+                   f"consumers in other domains subscribe on central (see the route)." if ev.visibility == "public"
+                   else "Internal: consumed only by rules on this bus inside the account.")
+                + "\n\n<ChannelInformation />")
+        _emit(out, f"{CATALOG_PREFIX}channels/{fm['id']}/index.mdx", _channel_page(fm, body), srcs)
+        if ev.visibility != "public":
+            continue
+        consumers = subs_by_dt.get(ev.detail_type, [])
+        fm = {
+            "id": central_channel(ev),
+            "name": f"{CENTRAL} · {ev.detail_type}",
+            "version": "1.0.0",
+            "summary": f"{ev.detail_type} on central-bus (EventBridge Custom Event Bus, platform account; ADR-021). Retained; consumers subscribe per domain.",
+            "owners": PLATFORM_OWNERS,
+            "address": f"arn:aws:events:{{region}}:{{platform-account}}:event-bus/{CENTRAL}",
+            "protocols": ["eventbridge"],
+            "deliveryGuarantee": "at-least-once",
+        }
+        if consumers:
+            fm["routes"] = [{"id": sub_channel(s.domain, ev.detail_type)} for s in consumers]
+        fm.update({
+            "x-generated": "catalog-gen",
+            "x-physical-channel": CENTRAL,
+            "x-detail-type": ev.detail_type,
+            "x-source": ev.source,
+            "x-event-group-id": "detail.aggregateId",
+            "x-deduplication-id": "detail.eventId",
+            "x-subscribers": [f"subscribers/{s.domain}-{kebab(s.event)}.json" for s in consumers],
+        })
+        body = (f"Logical channel: `detail-type: {ev.detail_type}` on [[channel|{CENTRAL}]]. Arrives from [[channel|{bus_channel(cat, ev)}]] "
+                f"through the forward rule. " + (f"{len(consumers)} subscriber(s) deliver it to consumer targets in their own accounts; "
+                                                 "there is no fan-out to domain buses." if consumers else "No subscribers yet.")
+                + "\n\n<ChannelInformation />")
+        _emit(out, f"{CATALOG_PREFIX}channels/{fm['id']}/index.mdx", _channel_page(fm, body), srcs + [p for s in consumers for p in s.paths])
+    for s in subs:
+        dom = cat.domains.get(s.domain)
+        for dt in s.detail_types:
+            fm = {
+                "id": sub_channel(s.domain, dt),
+                "name": f"{s.domain} subscriber · {dt}",
+                "version": "1.0.0",
+                "summary": f"Subscriber in the {s.domain} account on central-bus for {dt}: filter, retry 185/24h, DLQ, delivers to {', '.join(s.services)}.",
+                "owners": list(dom.owners) if dom else PLATFORM_OWNERS,
+                "address": f"arn:aws:events:{{region}}:{{{s.domain}-account}}:subscriber/{s.domain}-{kebab(s.event)}",
+                "protocols": ["eventbridge"],
+                "deliveryGuarantee": "at-least-once",
+                "x-generated": "catalog-gen",
+                "x-physical-channel": CENTRAL,
+                "x-detail-type": dt,
+                "x-subscriber": f"subscribers/{s.domain}-{kebab(s.event)}.json",
+                "x-filter": _compact(s.pattern),
+                "x-retry-policy": SUBSCRIBER_RETRY,
+                "x-dead-letter-queue": f"{s.domain}-{kebab(s.event)}-dlq",
+                "x-targets": s.services,
+            }
+            body = (f"The {s.domain} domain's subscriber on [[channel|{CENTRAL}]] for `{dt}` (ADR-021). Generated from `receives[]`: "
+                    f"the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. "
+                    f"Never targets a domain bus.\n\n<ChannelInformation />")
+            _emit(out, f"{CATALOG_PREFIX}channels/{fm['id']}/index.mdx", _channel_page(fm, body), s.paths)
+    return out
+
+
 def emit_manifest(cat: Catalog, files: dict[str, str]) -> dict[str, str]:
-    order = ["validation", "parquet", "rules/*-public-forward*", "rules/*-fan-out*", "rules/*-consumer-*", "archive", "catalog/events/*/odcs.yaml"]
+    order = ["validation", "parquet", "rules/*-public-forward*", "rules/*-consumer-*", "subscribers", "archive",
+             "catalog/channels/*", "catalog/events/*/odcs.yaml", "rules/*-fan-out*  (platform-local stub only)"]
     manifest = {"order": order, "files": sorted(files), "consumers": consumer_targets(cat),
                 "splitRules": sorted(f for f in files if ".part-" in f)}
     PROVENANCE["deploy-order.json"] = sorted(str(p) for p in {d.path for d in cat.domains.values()} | {s.path for s in cat.services.values()})
     return {"deploy-order.json": _j(manifest)}
 
 
-EMITTERS = [emit_rules, emit_routing_map, emit_validation_bundles, emit_parquet_schemas, emit_odcs]
+EMITTERS = [emit_rules, emit_subscribers, emit_routing_map, emit_validation_bundles, emit_parquet_schemas, emit_odcs, emit_channels]
 
 # ---------------------------------------------------------------- plumbing
 
@@ -638,11 +813,14 @@ def _target(rel: str, out: Path, catalog: Path) -> Path:
     return catalog / rel[len(CATALOG_PREFIX):] if rel.startswith(CATALOG_PREFIX) else out / rel
 
 
-def on_disk(files_or_out: Path, catalog: Path) -> dict[str, str]:
-    out = files_or_out
+def on_disk(out: Path, catalog: Path) -> dict[str, str]:
     found = {str(p.relative_to(out)): p.read_text() for p in out.rglob("*") if p.is_file()} if out.exists() else {}
     for p in catalog.glob("events/**/odcs.yaml"):
         found[CATALOG_PREFIX + str(p.relative_to(catalog))] = p.read_text()
+    for p in catalog.glob("channels/*/index.mdx"):
+        text = p.read_text()
+        if GENERATED_MARK in text:
+            found[CATALOG_PREFIX + str(p.relative_to(catalog))] = text
     return found
 
 
@@ -650,7 +828,10 @@ def write(files: dict[str, str], out: Path, catalog: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for rel in on_disk(out, catalog):
         if rel not in files:
-            _target(rel, out, catalog).unlink()
+            p = _target(rel, out, catalog)
+            p.unlink()
+            if rel.startswith(CATALOG_PREFIX + "channels/") and not any(p.parent.iterdir()):
+                p.parent.rmdir()
     for p in sorted(out.rglob("*"), reverse=True):
         if p.is_dir() and not any(p.iterdir()):
             p.rmdir()

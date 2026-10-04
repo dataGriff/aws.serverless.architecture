@@ -2,7 +2,7 @@
 id: orders-bus
 name: Orders bus
 version: 1.0.0
-summary: The orders domain's own EventBridge bus. Receives every public event from other domains through fan-out; hosts the domain's consumer rules.
+summary: The orders domain's own EventBridge Classic bus. Every orders.* event is published here; public ones are forwarded to central-bus by the generated rule.
 owners:
   - orders-team
 address: arn:aws:events:{region}:{orders-account}:event-bus/orders-bus
@@ -16,12 +16,11 @@ parameters:
     description: Home region
   orders-account:
     description: Orders account id
-routes:
-  - id: central-bus
 x-owner-account: orders
-x-route-rule: orders-public-forward (generated; public events only)
+x-kind: classic
+x-forward-rule: rules/orders-public-forward.json
 ---
 
 <ChannelInformation />
 
-Every `orders.*` event is published here and only here. The generated public-forward rule routes the public ones to `central-bus`; internal events never leave this bus. Consumer rules for this domain also live here, matching what the fan-out rule delivers from `central-bus`.
+Physical anchor. Routing lives on the generated logical channels `orders-bus.<detail-type>`, one per event this domain publishes: public ones route to `central-bus.<detail-type>`; internal ones stop here and are consumed by rules on this bus. This domain receives other domains' events through its subscribers on central (`orders-sub.<detail-type>`), never through this bus.

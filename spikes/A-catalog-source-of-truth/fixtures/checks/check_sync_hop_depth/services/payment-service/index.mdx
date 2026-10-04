@@ -9,7 +9,7 @@ sends:
   - id: PaymentCaptured
     version: 1.0.0
     to:
-      - id: payments-bus
+      - id: payments-bus.PaymentCaptured.v1
   - id: GetOrder
     version: 1.0.0
     to:
@@ -18,7 +18,7 @@ receives:
   - id: OrderPlaced
     version: 1.0.0
     from:
-      - id: payments-bus
+      - id: payments-sub.OrderPlaced.v1
   - id: GetPayment
     version: 1.0.0
 x-account: payments

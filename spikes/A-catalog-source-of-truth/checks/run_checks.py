@@ -182,39 +182,45 @@ def check_source_namespace(cat: Path, m: dict) -> list[str]:
 
 
 def check_channel_topology(cat: Path, m: dict) -> list[str]:
-    """The bus topology is domain bus → central-bus → domain bus (README.md: fan-out-all). A service publishes every
-    event to its own domain's bus and nothing else (never to central-bus directly); it receives bus events only from
-    its own domain's bus; every domain bus `routes` to central-bus and central-bus `routes` to every domain bus."""
+    """ADR-021 topology on per-event logical channels. A service publishes each event only to `{own-bus}.{detail-type}`;
+    it receives a same-domain event from that same channel and a cross-domain event only from its own subscriber
+    channel `{own-domain}-sub.{detail-type}`; nothing names central-bus or another domain's bus directly. The
+    physical channel pages (orders-bus, central-bus...) carry no routes: routing is on the generated logical channels."""
     fails = []
-    bus_of = {d: _x(dom["fm"], "bus") for d, dom in m["domains"].items()}
+    bus_of = {d: _x(dom["fm"], "bus", f"{d}-bus") for d, dom in m["domains"].items()}
+    physical = set(bus_of.values()) | {CENTRAL}
+
+    def dts(ev_id):
+        return [f"{e['id']}.v{e['version'].split('.')[0]}" for e in _event_by_name(m, ev_id)]
+
     for sname, s in m["services"].items():
         own = bus_of.get(s["domain"])
         if own is None:
-            fails.append(f"{sname}: domain {s['domain']} declares no x-bus (README.md)")
+            fails.append(f"{sname}: domain {s['domain']} is unknown (README.md)")
             continue
         for ev_id, to in s["sends"].items():
             if ev_id in m["messages"]:
                 continue
-            if set(to) != {own}:
-                fails.append(f"{sname} sends {ev_id} to {to or '[]'}; events are published only to the domain's own bus {own} (README.md)")
+            expected = {f"{own}.{dt}" for dt in dts(ev_id)}
+            if set(to) != expected:
+                fails.append(f"{sname} sends {ev_id} to {to or '[]'}; expected its logical channel(s) {sorted(expected)} on the domain's own bus (ADR-021)")
         for ev_id, frm in s["receives"].items():
             if ev_id in m["messages"]:
                 continue
-            if set(frm) != {own}:
-                fails.append(f"{sname} receives {ev_id} from {frm or '[]'}; consumers subscribe only on their own bus {own} (README.md)")
-    routes = m["channel_routes"]
-    if CENTRAL not in routes:
-        return fails + [f"channel {CENTRAL} is missing (README.md)"]
-    # The fan-out hop is declared as x-fan-out-to on central-bus, not as routes: EventCatalog 4.12.3 overflows when
-    # central routes back to two or more buses that route into it. If routes are present they must be complete.
-    fan_out = set(m["channel_fan_out"].get(CENTRAL, [])) | set(routes[CENTRAL])
-    for d, bus in bus_of.items():
-        if bus is None:
-            continue
-        if CENTRAL not in routes.get(bus, []):
-            fails.append(f"channel {bus} ({d}) must route to {CENTRAL} (public-forward rule) (README.md)")
-        if bus not in fan_out:
-            fails.append(f"channel {CENTRAL} must fan out to {bus} ({d}): list it under x-fan-out-to or routes (README.md)")
+            evs = _event_by_name(m, ev_id)
+            if evs and all(e["domain"] == s["domain"] for e in evs):
+                expected = {f"{own}.{dt}" for dt in dts(ev_id)}
+                why = "same-domain events are consumed from their channel on the domain bus"
+            else:
+                expected = {f"{s['domain']}-sub.{dt}" for dt in dts(ev_id)} or {f"{s['domain']}-sub.{ev_id}.v1"}
+                why = "cross-domain events are consumed through the domain's own subscriber on central"
+            if set(frm) != expected:
+                fails.append(f"{sname} receives {ev_id} from {frm or '[]'}; expected {sorted(expected)}: {why} (ADR-021)")
+    for ch, routes in m["channel_routes"].items():
+        if ch in physical and routes:
+            fails.append(f"physical channel {ch} must not declare routes {routes}; routing lives on the logical channels (ADR-021)")
+    if CENTRAL not in m["channel_routes"]:
+        fails.append(f"channel {CENTRAL} is missing (README.md)")
     return fails
 
 
