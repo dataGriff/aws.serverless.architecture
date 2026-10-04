@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/order.aggregate.updated/1/schema.json",
+  "title": "order.aggregate.updated",
+  "type": "object",
+  "properties": {
+    "order": { "$ref": "../../schemas/orders/Order.json", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "changedFields": { "type": "array", "items": { "type": "string" }, "x-pii": "none" }
+  },
+  "required": ["order", "changedFields"],
+  "additionalProperties": false
+}

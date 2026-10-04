@@ -1,26 +1,36 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://platform.example/x-pii.metaschema.json",
-  "title": "Every property declares x-pii; special is forbidden on events",
-  "type": "object",
-  "properties": {
-    "properties": {
+  "title": "Every property declares x-pii; special is forbidden; direct needs encryption + decryptors; nested objects recurse",
+  "$ref": "#/$defs/objectSchema",
+  "$defs": {
+    "objectSchema": {
       "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "required": ["x-pii"],
+      "properties": {
         "properties": {
-          "x-pii": { "enum": ["none", "indirect", "direct", "special"] },
-          "encryption": { "enum": ["subject-key"] },
-          "decryptors": { "type": "array", "items": { "type": "string" } }
-        },
-        "allOf": [
-          { "if": { "properties": { "x-pii": { "const": "direct" } } },
-            "then": { "required": ["encryption", "decryptors"] } },
-          { "not": { "properties": { "x-pii": { "const": "special" } } } }
-        ]
-      }
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/property" }
+        }
+      },
+      "required": ["properties"]
+    },
+    "property": {
+      "type": "object",
+      "required": ["x-pii"],
+      "properties": {
+        "x-pii": { "enum": ["none", "indirect", "direct", "special"] },
+        "encryption": { "enum": ["subject-key"] },
+        "decryptors": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/property" }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "x-pii": { "const": "direct" } } },
+          "then": { "required": ["encryption", "decryptors"] } },
+        { "not": { "properties": { "x-pii": { "const": "special" } }, "required": ["x-pii"] } }
+      ]
     }
-  },
-  "required": ["properties"]
+  }
 }

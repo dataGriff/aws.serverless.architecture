@@ -1,11 +1,17 @@
-# Starter Spectral ruleset — encode conventions.md (API conventions). Extend; each rule = one convention.
+# Spectral ruleset — conventions.md "API conventions Spectral-enforced" and ADR-004/005. One rule per convention.
 extends: ["spectral:oas"]
 rules:
+  oas3-unused-component: off
   path-must-be-versioned:
     description: Paths start with /v{n} (conventions.md)
     given: "$.paths[*]~"
     severity: error
-    then: { function: pattern, functionOptions: { match: "^/v[0-9]+/" } }
+    then: { function: pattern, functionOptions: { match: "^/v[0-9]+(/|$)" } }
+  openapi-is-3-1:
+    description: OpenAPI 3.1 in the catalog (conventions.md)
+    given: "$.openapi"
+    severity: error
+    then: { function: pattern, functionOptions: { match: "^3\\.1\\." } }
   operation-has-message-type:
     description: Every operation declares x-eventcatalog-message-type command|query (ADR-004)
     given: "$.paths[*][get,post,put,patch,delete]"
@@ -13,18 +19,88 @@ rules:
     then:
       - { field: x-eventcatalog-message-type, function: truthy }
       - { field: x-eventcatalog-message-type, function: enumeration, functionOptions: { values: [command, query] } }
+  operation-has-operation-id:
+    description: operationId is the command/query page id (ADR-004)
+    given: "$.paths[*][get,post,put,patch,delete]"
+    severity: error
+    then: { field: operationId, function: truthy }
+  commands-are-post:
+    description: Commands are POST (conventions.md)
+    given: "$.paths[*][get,put,patch,delete][?(@['x-eventcatalog-message-type'] == 'command')]"
+    severity: error
+    then: { function: falsy }
+  queries-are-get:
+    description: Queries are GET (conventions.md)
+    given: "$.paths[*][post,put,patch,delete][?(@['x-eventcatalog-message-type'] == 'query')]"
+    severity: error
+    then: { function: falsy }
   post-requires-idempotency-key:
     description: Commands (POST) require an Idempotency-Key header parameter (conventions.md)
     given: "$.paths[*].post"
     severity: error
-    then: { field: parameters, function: schema, functionOptions: { schema: { type: array, contains: { type: object, properties: { name: { const: Idempotency-Key }, in: { const: header }, required: { const: true } }, required: [name, in, required] } } } }
-  errors-are-problem-json:
-    description: 4xx/5xx responses use application/problem+json (conventions.md)
-    given: "$.paths[*][*].responses[?(@property >= '400')].content"
+    resolved: true
+    then:
+      field: parameters
+      function: schema
+      functionOptions:
+        schema:
+          type: array
+          contains:
+            type: object
+            properties:
+              name: { const: Idempotency-Key }
+              in: { const: header }
+              required: { const: true }
+            required: [name, in, required]
+  correlation-id-accepted:
+    description: X-Correlation-Id is accepted on every operation (conventions.md)
+    given: "$.paths[*][get,post,put,patch,delete]"
     severity: error
+    resolved: true
+    then:
+      field: parameters
+      function: schema
+      functionOptions:
+        schema:
+          type: array
+          contains:
+            type: object
+            properties:
+              name: { const: X-Correlation-Id }
+              in: { const: header }
+            required: [name, in]
+  correlation-id-echoed:
+    description: X-Correlation-Id is echoed on 2xx responses (conventions.md)
+    given: "$.paths[*][get,post,put,patch,delete].responses[?(@property >= '200' && @property < '300')]"
+    severity: error
+    resolved: true
+    then: { field: headers.X-Correlation-Id, function: truthy }
+  errors-are-problem-json:
+    description: 4xx/5xx responses use application/problem+json (conventions.md, RFC 9457)
+    given: "$.paths[*][get,post,put,patch,delete].responses[?(@property >= '400')].content"
+    severity: error
+    resolved: true
     then: { field: application/problem+json, function: truthy }
   security-declared:
-    description: A security scheme is declared and applied (ADR-005)
+    description: A security scheme is declared and applied globally (ADR-005)
     given: "$"
     severity: error
-    then: { field: security, function: truthy }
+    then:
+      - { field: security, function: truthy }
+      - { field: components.securitySchemes, function: truthy }
+  external-routes-are-marked:
+    description: x-external, when present, is boolean; those routes get WAF (conventions.md)
+    given: "$.paths[*][get,post,put,patch,delete].x-external"
+    severity: error
+    then: { function: schema, functionOptions: { schema: { type: boolean } } }
+  request-bodies-classify-pii:
+    description: Every request-body property declares x-pii, on the property itself even when it is a $ref (pii.md)
+    given: "$.components.schemas[?(@property != 'Problem')].properties[*]"
+    severity: error
+    resolved: false
+    then: { field: x-pii, function: truthy }
+  operation-description:
+    description: Operations carry a description for the generated client and the catalog page
+    given: "$.paths[*][get,post,put,patch,delete]"
+    severity: error
+    then: { field: description, function: truthy }

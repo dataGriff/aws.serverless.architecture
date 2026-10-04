@@ -1,0 +1,22 @@
+---
+id: payments-bus
+name: Payments bus
+version: 1.0.0
+summary: The payments domain's own EventBridge bus. Receives every public event from other domains through fan-out; hosts the domain's consumer rules.
+owners:
+  - payments-team
+address: arn:aws:events:{region}:{payments-account}:event-bus/payments-bus
+protocols:
+  - eventbridge
+deliveryGuarantee: at-least-once
+parameters:
+  region:
+    enum: [eu-west-2]
+    default: eu-west-2
+    description: Home region
+  payments-account:
+    description: Payments account id
+x-owner-account: payments
+---
+
+<ChannelInformation />

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/OrderPlaced/1/schema.json",
+  "title": "OrderPlaced",
+  "type": "object",
+  "properties": {
+    "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "customerEmail": { "type": "string", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["payments"],
+                       "description": "Ciphertext envelope {enc, kid, ct}; payments may decrypt." },
+    "total": { "$ref": "../../schemas/Money.json", "x-pii": "none" },
+    "placedAt": { "type": "string", "format": "date-time", "x-pii": "none" }
+  },
+  "required": ["orderId", "customerId", "customerEmail", "total", "placedAt"],
+  "additionalProperties": false
+}

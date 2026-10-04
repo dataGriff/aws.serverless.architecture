@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/PaymentCaptured/1/schema.json",
+  "title": "PaymentCaptured",
+  "type": "object",
+  "properties": {
+    "paymentId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "amount": { "$ref": "../../schemas/Money.json", "x-pii": "none" },
+    "capturedAt": { "type": "string", "format": "date-time", "x-pii": "none" },
+    "attempt": { "type": "integer", "minimum": 1, "x-pii": "none" }
+  },
+  "required": ["paymentId", "orderId", "customerId", "amount", "capturedAt"],
+  "additionalProperties": false
+}

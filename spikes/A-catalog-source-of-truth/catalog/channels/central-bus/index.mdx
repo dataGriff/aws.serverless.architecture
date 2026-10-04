@@ -1,0 +1,25 @@
+---
+id: central-bus
+name: Central bus
+version: 1.0.0
+summary: The one EventBridge bus that routes public events between domains. Persists nothing except a 30-day native archive for replay.
+owners:
+  - platform-team
+address: arn:aws:events:{region}:{platform-account}:event-bus/central-bus
+protocols:
+  - eventbridge
+deliveryGuarantee: at-least-once
+parameters:
+  region:
+    enum: [eu-west-2]
+    default: eu-west-2
+    description: Home region
+  platform-account:
+    description: Platform account id
+x-owner-account: platform
+x-public-only: true
+---
+
+<ChannelInformation />
+
+Only public events are forwarded here by each domain's generated public-forward rule. One fan-out rule per domain forwards everything except that domain's own events to its bus.

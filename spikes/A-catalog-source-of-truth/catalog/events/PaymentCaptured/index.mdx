@@ -1,0 +1,37 @@
+---
+id: PaymentCaptured
+name: Payment captured
+version: 1.0.0
+summary: Funds for an order were captured. Public; carries only pseudonymous identifiers and money.
+owners:
+  - payments-team
+schemaPath: schema.json
+badges:
+  - content: public
+    backgroundColor: green
+    textColor: green
+  - content: pii max indirect
+    backgroundColor: yellow
+    textColor: yellow
+x-visibility: public
+x-audience: all
+x-source: payments.payment-service
+x-pii:
+  customerId: indirect
+---
+
+## Routing
+
+`source` is `payments.payment-service`, `detail-type` is `PaymentCaptured.v1`. Public: forwarded to `central-bus`, fanned out to every other domain bus, archived to payments bronze and compacted to silver.
+
+<CustomProperties title="Platform properties" />
+
+## Payload
+
+<SchemaViewer file="schema.json" title="Payload schema (inside detail)" />
+
+## Data contract (ODCS)
+
+<Schema file="odcs.yaml" lang="yaml" title="odcs.yaml" />
+
+<NodeGraph />

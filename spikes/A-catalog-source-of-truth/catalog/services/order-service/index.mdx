@@ -1,0 +1,50 @@
+---
+id: order-service
+name: Order service
+version: 1.0.0
+summary: Accepts orders through the orders API, publishes OrderPlaced, reacts to PaymentCaptured.
+owners:
+  - orders-team
+sends:
+  - id: OrderPlaced
+    version: 1.0.0
+    to:
+      - id: orders-bus
+      - id: central-bus
+  - id: order.aggregate.updated
+    version: 1.0.0
+    to:
+      - id: orders-bus
+receives:
+  - id: PaymentCaptured
+    version: 1.0.0
+    from:
+      - id: orders-bus
+  - id: PlaceOrder
+    version: 1.0.0
+    from:
+      - id: orders-api
+  - id: GetOrder
+    version: 1.0.0
+    from:
+      - id: orders-api
+specifications:
+  - type: openapi
+    path: openapi.yaml
+    name: Orders API v1
+repository:
+  language: Python
+  url: https://github.com/example/order-service
+x-account: orders
+x-bus: orders-bus
+---
+
+## Behaviour
+
+Commands arrive over the orders API (`POST /v1/orders`) and queries over `GET /v1/orders/{id}`; both are modelled as messages this service receives. Facts leave as events through the transactional outbox and the relay module onto `orders-bus`; public ones are forwarded to `central-bus` by the generated rule, which is why they list both channels under `to`. Everything this service consumes arrives on `orders-bus` (fan-out), never from another domain's bus.
+
+<CustomProperties title="Platform properties" />
+
+<NodeGraph />
+
+<MessageTable format="all" limit={20} />

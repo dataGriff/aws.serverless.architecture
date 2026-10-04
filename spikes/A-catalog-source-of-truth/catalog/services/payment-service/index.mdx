@@ -1,0 +1,38 @@
+---
+id: payment-service
+name: Payment service
+version: 1.0.0
+summary: Captures payment for placed orders and publishes PaymentCaptured. Calls the orders API through the generated client (one sync hop).
+owners:
+  - payments-team
+sends:
+  - id: PaymentCaptured
+    version: 1.0.0
+    to:
+      - id: payments-bus
+      - id: central-bus
+  - id: GetOrder
+    version: 1.0.0
+    to:
+      - id: orders-api
+receives:
+  - id: OrderPlaced
+    version: 1.0.0
+    from:
+      - id: payments-bus
+repository:
+  language: Python
+  url: https://github.com/example/payment-service
+x-account: payments
+x-bus: payments-bus
+---
+
+## Behaviour
+
+Consumes `OrderPlaced.v1` from `payments-bus` (delivered by the fan-out rule), decrypts `customerEmail` as a listed decryptor, captures funds and publishes `PaymentCaptured.v1`. Looks orders up with the generated client for `GetOrder`.
+
+<CustomProperties title="Platform properties" />
+
+<NodeGraph />
+
+<MessageTable format="all" limit={20} />

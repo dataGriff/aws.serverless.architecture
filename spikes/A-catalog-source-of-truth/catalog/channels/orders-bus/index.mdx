@@ -1,0 +1,22 @@
+---
+id: orders-bus
+name: Orders bus
+version: 1.0.0
+summary: The orders domain's own EventBridge bus. Receives every public event from other domains through fan-out; hosts the domain's consumer rules.
+owners:
+  - orders-team
+address: arn:aws:events:{region}:{orders-account}:event-bus/orders-bus
+protocols:
+  - eventbridge
+deliveryGuarantee: at-least-once
+parameters:
+  region:
+    enum: [eu-west-2]
+    default: eu-west-2
+    description: Home region
+  orders-account:
+    description: Orders account id
+x-owner-account: orders
+---
+
+<ChannelInformation />
