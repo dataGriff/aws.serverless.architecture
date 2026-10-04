@@ -1,0 +1,20 @@
+# FIXTURE — what data-contracts.md's example literally says: logicalType: timestamp is not in the ODCS v3.0.2 enum,
+# and `name` is required on every schema object.
+apiVersion: v3.0.2
+kind: DataContract
+id: orders.OrderPlaced.v1
+version: 1.0.0
+status: active
+domain: orders
+schema:
+  - physicalType: parquet
+    properties:
+      - name: event_id
+        logicalType: string
+        physicalType: string
+        required: true
+        primaryKey: true
+      - name: occurred_at
+        logicalType: timestamp
+        physicalType: timestamp[us,UTC]
+        required: true

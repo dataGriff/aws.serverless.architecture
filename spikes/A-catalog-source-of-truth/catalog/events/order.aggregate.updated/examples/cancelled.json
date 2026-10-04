@@ -1,0 +1,25 @@
+{
+  "version": "0",
+  "id": "4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e7f",
+  "detail-type": "order.aggregate.updated.v1",
+  "source": "orders.order-service",
+  "account": "111111111111",
+  "time": "2026-10-04T11:02:44Z",
+  "region": "eu-west-2",
+  "resources": [],
+  "detail": {
+    "eventId": "0d1e2f3a-4b5c-4d6e-9f7a-8b9c0d1e2f3a",
+    "occurredAt": "2026-10-04T11:02:43.120Z",
+    "replay": false,
+    "correlationId": "req-9b5c4d3e",
+    "aggregateId": "ord_01J9Q7A1B2C3D4E5F6G7H8J9K0",
+    "aggregateVersion": 3,
+    "order": {
+      "orderId": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f",
+      "customerId": "cus_01J9Q4A9B8C7D6E5F4G3H2J1K0",
+      "status": "cancelled",
+      "total": { "amount": "1299.00", "currency": "EUR" }
+    },
+    "changedFields": ["status", "customerEmail", "shippingAddress"]
+  }
+}

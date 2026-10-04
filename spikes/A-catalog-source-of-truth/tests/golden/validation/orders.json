@@ -1,0 +1,127 @@
+{
+  "OrderPlaced.v1": {
+    "ciphertextFields": [
+      "customerEmail"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateId": {
+          "type": "string",
+          "x-pii": "indirect"
+        },
+        "aggregateVersion": {
+          "minimum": 0,
+          "type": "integer",
+          "x-pii": "none"
+        },
+        "causationId": {
+          "type": "string",
+          "x-pii": "none"
+        },
+        "correlationId": {
+          "type": "string",
+          "x-pii": "none"
+        },
+        "customerEmail": {
+          "additionalProperties": false,
+          "decryptors": [
+            "payments"
+          ],
+          "description": "Ciphertext envelope {enc, kid, ct}; payments may decrypt.",
+          "encryption": "subject-key",
+          "properties": {
+            "ct": {
+              "contentEncoding": "base64",
+              "minLength": 1,
+              "type": "string"
+            },
+            "enc": {
+              "const": "v1"
+            },
+            "kid": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "enc",
+            "kid",
+            "ct"
+          ],
+          "type": "object",
+          "x-pii": "direct"
+        },
+        "customerId": {
+          "type": "string",
+          "x-pii": "indirect"
+        },
+        "eventId": {
+          "format": "uuid",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "occurredAt": {
+          "format": "date-time",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "orderId": {
+          "format": "uuid",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "placedAt": {
+          "format": "date-time",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "replay": {
+          "type": "boolean",
+          "x-pii": "none"
+        },
+        "total": {
+          "additionalProperties": false,
+          "description": "Value object. Amount as a decimal string with ISO 4217 currency.",
+          "properties": {
+            "amount": {
+              "format": "decimal",
+              "pattern": "^-?[0-9]+(\\.[0-9]{1,4})?$",
+              "type": "string",
+              "x-pii": "none"
+            },
+            "currency": {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string",
+              "x-pii": "none"
+            }
+          },
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "title": "Money",
+          "type": "object",
+          "x-kind": "value-object",
+          "x-pii": "none"
+        }
+      },
+      "required": [
+        "aggregateId",
+        "aggregateVersion",
+        "customerEmail",
+        "customerId",
+        "eventId",
+        "occurredAt",
+        "orderId",
+        "placedAt",
+        "replay",
+        "total"
+      ],
+      "title": "OrderPlaced (detail)",
+      "type": "object"
+    },
+    "source": "orders.order-service"
+  }
+}

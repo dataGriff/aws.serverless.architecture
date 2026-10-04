@@ -1,0 +1,27 @@
+---
+id: orders-sub.PaymentCaptured.v1
+name: orders subscriber · PaymentCaptured.v1
+version: 1.0.0
+summary: 'Subscriber in the orders account on central-bus for PaymentCaptured.v1: filter, retry 185/24h, DLQ, delivers to order-service.'
+owners:
+- orders-team
+address: arn:aws:events:{region}:{orders-account}:subscriber/orders-payment-captured
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+x-generated: catalog-gen
+x-physical-channel: central-bus
+x-detail-type: PaymentCaptured.v1
+x-subscriber: subscribers/orders-payment-captured.json
+x-filter: '{"detail-type":["PaymentCaptured.v1"],"source":[{"prefix":"payments."}]}'
+x-retry-policy:
+  maximumRetryAttempts: 185
+  maximumEventAgeInSeconds: 86400
+x-dead-letter-queue: orders-payment-captured-dlq
+x-targets:
+- order-service
+---
+
+The orders domain's subscriber on the physical bus `central-bus` for `PaymentCaptured.v1` (ADR-021), fed by [[channel|central-bus.PaymentCaptured.v1]]. Generated from `receives[]`: the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. Never targets a domain bus.
+
+<ChannelInformation />

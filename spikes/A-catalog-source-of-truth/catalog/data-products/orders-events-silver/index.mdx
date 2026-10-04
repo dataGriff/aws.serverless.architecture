@@ -1,0 +1,25 @@
+---
+id: orders-events-silver
+name: Orders events · silver
+version: 1.0.0
+summary: One Parquet table per public orders event version, in the orders silver bucket, each with a generated ODCS contract.
+owners:
+  - orders-team
+inputs:
+  - id: OrderPlaced
+    version: 1.0.0
+    type: event
+outputs:
+  - id: orders-order-placed-v1
+    type: container
+    contract:
+      path: ../../events/OrderPlaced/odcs.yaml
+      name: OrderPlaced.v1 ODCS
+      type: odcs
+x-bucket: orders-events-silver
+x-reader-role: orders-reader
+---
+
+Each table is `silver/{source}/{detail-type}/dt=YYYY-MM-DD/hour=HH/`. The contract is generated from the event schema and `data-product.yaml`; changing the generated part means changing the event schema.
+
+<NodeGraph />

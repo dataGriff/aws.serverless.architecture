@@ -1,0 +1,27 @@
+{
+  "account": "orders",
+  "bus": "central-bus",
+  "channels": [
+    "orders-sub.PaymentCaptured.v1"
+  ],
+  "deadLetterQueue": "orders-payment-captured-dlq",
+  "filter": {
+    "detail-type": [
+      "PaymentCaptured.v1"
+    ],
+    "source": [
+      {
+        "prefix": "payments."
+      }
+    ]
+  },
+  "maxBatchSize": 1,
+  "name": "orders-payment-captured",
+  "retryPolicy": {
+    "maximumEventAgeInSeconds": 86400,
+    "maximumRetryAttempts": 185
+  },
+  "targets": [
+    "order-service"
+  ]
+}

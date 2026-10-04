@@ -1,0 +1,21 @@
+---
+id: orders-bus.order.aggregate.updated.v1
+name: orders-bus · order.aggregate.updated.v1
+version: 1.0.0
+summary: 'order.aggregate.updated.v1 on orders-bus (EventBridge Classic, orders account). Internal: never leaves this bus.'
+owners:
+- orders-team
+address: arn:aws:events:{region}:{orders-account}:event-bus/orders-bus
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+x-generated: catalog-gen
+x-physical-channel: orders-bus
+x-detail-type: order.aggregate.updated.v1
+x-source: orders.order-service
+x-visibility: internal
+---
+
+Logical channel: `detail-type: order.aggregate.updated.v1` on the physical bus `orders-bus` (EventBridge Classic, orders account). Internal: consumed only by rules on this bus inside the account.
+
+<ChannelInformation />

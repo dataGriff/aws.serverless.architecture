@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Bad API
+  version: 1.0.0
+  description: FIXTURE — breaks every convention Spectral enforces.
+paths:
+  /orders:
+    post:
+      operationId: PlaceOrder
+      description: Command without Idempotency-Key or X-Correlation-Id, unversioned path, plain JSON errors.
+      x-eventcatalog-message-type: command
+      responses:
+        '201':
+          description: ok
+        '400':
+          description: bad
+          content:
+            application/json:
+              schema: { type: object }
+  /orders/{id}:
+    get:
+      operationId: CancelOrder
+      description: A command on GET, no message type on the other op.
+      x-eventcatalog-message-type: command
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: ok }
+    delete:
+      operationId: DeleteOrder
+      description: No message type at all.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: ok }
+components:
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      properties:
+        customerEmail: { type: string }

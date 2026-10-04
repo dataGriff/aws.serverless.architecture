@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Customer",
+  "description": "FIXTURE — an entity (has its own identity) placed at the shared schemas root.",
+  "type": "object",
+  "properties": {
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "displayName": { "type": "string", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] }
+  },
+  "required": ["customerId"]
+}

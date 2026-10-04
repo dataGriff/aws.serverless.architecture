@@ -1,0 +1,14 @@
+{
+  "orders.": {
+    "bucket": "orders-events-bronze",
+    "detailTypes": [
+      "OrderPlaced.v1"
+    ]
+  },
+  "payments.": {
+    "bucket": "payments-events-bronze",
+    "detailTypes": [
+      "PaymentCaptured.v1"
+    ]
+  }
+}

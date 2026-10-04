@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Orders API
+  version: 1.0.0
+  description: FIXTURE — an operation without a message type and one without a command page.
+servers:
+  - url: https://orders.api.example.com
+security:
+  - jwt: []
+paths:
+  /v1/orders:
+    post:
+      operationId: PlaceOrder
+      description: Command.
+      x-eventcatalog-message-type: command
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: ok }
+  /v1/orders/{id}:
+    get:
+      operationId: GetOrder
+      description: Query.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: ok }
+    delete:
+      operationId: CancelOrder
+      description: Command with no page.
+      x-eventcatalog-message-type: command
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: ok }
+components:
+  securitySchemes:
+    jwt: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string } }

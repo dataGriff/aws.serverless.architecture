@@ -1,0 +1,26 @@
+---
+id: central-bus.OrderPlaced.v1
+name: central-bus · OrderPlaced.v1
+version: 1.0.0
+summary: OrderPlaced.v1 on central-bus (EventBridge Custom Event Bus, platform account; ADR-021). Retained; consumers subscribe per domain.
+owners:
+- platform-team
+address: arn:aws:events:{region}:{platform-account}:event-bus/central-bus
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+routes:
+- id: payments-sub.OrderPlaced.v1
+x-generated: catalog-gen
+x-physical-channel: central-bus
+x-detail-type: OrderPlaced.v1
+x-source: orders.order-service
+x-event-group-id: detail.aggregateId
+x-deduplication-id: detail.eventId
+x-subscribers:
+- subscribers/payments-order-placed.json
+---
+
+Logical channel: `detail-type: OrderPlaced.v1` on the physical bus `central-bus` (EventBridge Custom Event Bus, platform account). Arrives from [[channel|orders-bus.OrderPlaced.v1]] through the forward rule. 1 subscriber(s) deliver it to consumer targets in their own accounts; there is no fan-out to domain buses.
+
+<ChannelInformation />

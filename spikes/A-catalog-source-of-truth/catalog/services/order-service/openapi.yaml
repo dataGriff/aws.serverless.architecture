@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Orders API
+  version: 1.0.0
+  description: Design-first API of the orders domain. Every operation is a command or a query (ADR-004).
+  contact:
+    name: orders-team
+servers:
+  - url: https://orders.api.example.com
+security:
+  - jwt: []
+tags:
+  - name: orders
+paths:
+  /v1/orders:
+    post:
+      operationId: PlaceOrder
+      summary: Place an order
+      description: Command. Accepts a new order; idempotent on Idempotency-Key; emits OrderPlaced.v1 through the outbox.
+      tags: [orders]
+      x-eventcatalog-message-type: command
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+      responses:
+        '201':
+          description: Order accepted; OrderPlaced.v1 will follow on the bus.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '../../schemas/orders/Order.json'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/Problem'
+  /v1/orders/{id}:
+    get:
+      operationId: GetOrder
+      summary: Get an order by id
+      description: Query. Returns the current state of an order; the one synchronous hop other domains may take into orders.
+      tags: [orders]
+      x-eventcatalog-message-type: query
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: The order.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '../../schemas/orders/Order.json'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-chosen key; the same key returns the same result.
+      schema:
+        type: string
+        maxLength: 128
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Propagated to correlationId on every event the request causes.
+      schema:
+        type: string
+  headers:
+    XCorrelationId:
+      description: Echo of the request's X-Correlation-Id, or a new one.
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: RFC 9457 problem.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      properties:
+        customerId:
+          type: string
+          x-pii: indirect
+        customerEmail:
+          type: string
+          format: email
+          x-pii: direct
+          encryption: subject-key
+          decryptors: [payments]
+        total:
+          $ref: '../../schemas/Money.json'
+          x-pii: none
+        shippingAddress:
+          $ref: '../../schemas/Address.json'
+          x-pii: direct
+          description: Clear over TLS in the API; never appears in a public event except as ciphertext.
+      required: [customerId, customerEmail, total, shippingAddress]
+      additionalProperties: false
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+      required: [type, title, status]
