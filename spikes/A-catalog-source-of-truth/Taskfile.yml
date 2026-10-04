@@ -1,31 +1,67 @@
 version: "3"
 vars:
   BASE: '{{.BASE | default ""}}'
+  PYTEST: uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q tests
 tasks:
-  default: { cmds: [task --list] }
+  default:
+    cmds: [task --list]
   catalog:create:
     desc: Create the EventCatalog site (non-interactive; the empty template; Node 22 via .mise.toml)
-    cmds: ['printf "n\n" | mise exec -- npx -y @eventcatalog/create-eventcatalog@4.3.13 catalog --organization-name Platform --empty --use-npm']
-  catalog:install: { dir: catalog, cmds: [mise exec -- npm ci] }
-  catalog:dev: { dir: catalog, cmds: [mise exec -- npm run dev] }
+    cmds:
+      - printf "n\n" | mise exec -- npx -y @eventcatalog/create-eventcatalog@4.3.13 catalog --organization-name Platform --empty --use-npm
+  catalog:install:
+    dir: catalog
+    cmds: [mise exec -- npm ci]
+  catalog:dev:
+    dir: catalog
+    cmds: [mise exec -- npm run dev]
   catalog:build:
     desc: Build the static site (dist/). EventCatalog 4.12 needs Node >= 22.12; .mise.toml pins it for this directory.
     dir: catalog
     cmds: [mise exec -- npm run build]
   catalog:build:clean:
     desc: Build, then fail if the build rewrote any catalog source file (it migrates old frontmatter in place)
-    cmds: [{ task: catalog:build }, git diff --exit-code -- catalog]
-  gen: { desc: Generate into generated/local (+ odcs.yaml beside each public event), cmds: [uv run catalog-gen/catalog_gen.py build --catalog catalog --out generated/local] }
-  gen:check: { desc: Fail on drift in generated/local or the catalog's odcs.yaml files, cmds: [uv run catalog-gen/catalog_gen.py check --catalog catalog --out generated/local] }
-  gen:explain: { desc: "task gen:explain -- rules/orders-fan-out.json", cmds: [uv run catalog-gen/catalog_gen.py explain --catalog catalog --out generated/local {{.CLI_ARGS}}] }
+    cmds:
+      - task: catalog:build
+      - git diff --exit-code -- catalog
+  gen:
+    desc: Generate into generated/local (+ odcs.yaml beside each public event)
+    cmds: [uv run catalog-gen/catalog_gen.py build --catalog catalog --out generated/local]
+  gen:check:
+    desc: Fail on drift in generated/local or the catalog's odcs.yaml files
+    cmds: [uv run catalog-gen/catalog_gen.py check --catalog catalog --out generated/local]
+  gen:explain:
+    desc: "task gen:explain -- rules/orders-fan-out.json"
+    cmds:
+      - "uv run catalog-gen/catalog_gen.py explain --catalog catalog --out generated/local {{.CLI_ARGS}}"
   checks:
     desc: Run the catalog checks (BASE=<catalog on main> enables the schema diff)
-    cmds: ['uv run checks/run_checks.py --catalog catalog {{if .BASE}}--base {{.BASE}}{{end}}']
-  spectral: { desc: Lint every OpenAPI in the catalog, cmds: ["npx -y @stoplight/spectral-cli lint -r checks/spectral.yaml 'catalog/services/**/openapi.y*ml'"] }
-  odcs:lint: { desc: Lint the generated ODCS contracts, cmds: ["for f in catalog/events/*/odcs.yaml; do uvx --from datacontract-cli datacontract lint $f || exit 1; done"] }
-  test: { desc: Behavioural tests (includes the slow spectral/odcs ones), cmds: [uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q tests] }
-  test:fast: { desc: Behavioural tests without the external linters, cmds: [uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q -m "not slow" tests] }
-  test:update-golden: { desc: Accept the current generator output as the golden snapshot, cmds: [UPDATE_GOLDEN=1 uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q tests -k golden] }
+    cmds:
+      - uv run checks/run_checks.py --catalog catalog {{if .BASE}}--base {{.BASE}}{{end}}
+  spectral:
+    desc: Lint every OpenAPI in the catalog against conventions.md
+    cmds:
+      - npx -y @stoplight/spectral-cli lint -r checks/spectral.yaml 'catalog/services/**/openapi.y*ml'
+  odcs:lint:
+    desc: Lint the generated ODCS contracts (ODCS v3.0.2 JSON Schema via datacontract-cli)
+    cmds:
+      - for f in catalog/events/*/odcs.yaml; do uvx --from datacontract-cli datacontract lint $f || exit 1; done
+  test:
+    desc: Behavioural tests (includes the slow spectral/odcs ones)
+    cmds: ["{{.PYTEST}}"]
+  test:fast:
+    desc: Behavioural tests without the external linters
+    cmds: ['{{.PYTEST}} -m "not slow"']
+  test:update-golden:
+    desc: Accept the current generator output as the golden snapshot
+    cmds: ["UPDATE_GOLDEN=1 {{.PYTEST}} -k golden"]
   all:
     desc: Everything a catalog PR runs, in order
-    cmds: [{ task: gen }, { task: gen:check }, { task: checks }, { task: spectral }, { task: odcs:lint }, { task: test }, { task: catalog:build:clean }]
+    cmds:
+      - task: gen
+      - task: gen:check
+      - task: checks
+      - task: spectral
+      - task: odcs:lint
+      - task: test
+      - task: catalog:build:clean
