@@ -1,6 +1,6 @@
 # Spike B — findings
 
-Run on 2026-10-04 against LocalStack Community **4.14.0** (`localstack/localstack:4.14.0`), Terraform 1.9.8, hashicorp/aws 6.67.0, Docker 29.5.3, Python 3.12 / boto3 1.43 / pytest 9.1. Every claim below names the test or command that proves it.
+Run on 2026-10-04 against LocalStack Community **4.14.0** (`localstack/localstack:4.14.0`), then re-run on the licensed **2026.9.0** image (section "Second pass" below). Terraform 1.9.8, hashicorp/aws 6.67.0, Docker 29.5.3, Python 3.12 / boto3 1.43 / pytest 9.1. Every claim below names the test or command that proves it.
 
 ## Result
 
@@ -19,6 +19,9 @@ task -d spikes/B-localstack-buses-end-to-end apply FAN_OUT=enumerated && task -d
 task -d spikes/B-localstack-buses-end-to-end test-transformer                  # 1 xfailed (see below)
 task -d spikes/B-localstack-buses-end-to-end send -- events/broken-target.json && task -d spikes/B-localstack-buses-end-to-end dlq
 task -d spikes/B-localstack-buses-end-to-end depths  # every queue, including DLQs
+# licensed image (needs LOCALSTACK_AUTH_TOKEN exported in your shell):
+task -d spikes/B-localstack-buses-end-to-end down && task -d spikes/B-localstack-buses-end-to-end up LICENSED=true && task -d spikes/B-localstack-buses-end-to-end apply && task -d spikes/B-localstack-buses-end-to-end test
+task -d spikes/B-localstack-buses-end-to-end up LICENSED=true ENFORCE_IAM=0   # needed for CreateArchive
 ```
 
 `-m sandbox` selects the tests whose LocalStack result must not be trusted; run those in a real account before relying on them (`uv run --with boto3 --with pytest pytest -m sandbox` with real credentials and no `AWS_ENDPOINT_URL`).
@@ -49,6 +52,26 @@ task -d spikes/B-localstack-buses-end-to-end depths  # every queue, including DL
 | Terraform (hashicorp/aws 6.67) against LocalStack | yes | `task apply` → 65 resources, ~2 min; `aws_sqs_queue_policy` creates take ~25 s each (LocalStack, not Terraform) | — |
 | Lambda archiver stretch (S3 + DuckDB) | not built | compose logs `LAMBDA_DOCKER_NETWORK=host is currently not supported with the new lambda provider` | Out of time-box; Spike B's question did not need it. |
 
+## Second pass: licensed image (LocalStack 2026.9.0, `task up LICENSED=true`)
+
+Re-run the same day with `localstack/localstack:2026.09.0` (`edition: pro`, licence activated) and `ENFORCE_IAM=1`, then once more with `ENFORCE_IAM=0`. The token comes from the shell environment; `docker-compose.licensed.yml` references it and never holds it.
+
+| Mechanism | Community 4.14.0 | Licensed 2026.9.0 | What changed |
+| --- | --- | --- | --- |
+| suite (`task test`) | 11 passed, 1 xfailed | 11 passed, 1 xfailed | identical; **the second bus-to-bus hop still delivers**, so the one-hop limit is not modelled in either edition |
+| pattern operators | all ok | all ok | — |
+| ordering across hops | out of order | out of order | — |
+| SQS resource policy on a target | not enforced (event lands on the policy-less queue) | **enforced** with `ENFORCE_IAM=1`: `Failed to deliver event to target sqs of rule central-broken-target: AccessDenied … sqs:sendmessage` and the queue stays at 0 | the broken target is now broken for the right reason |
+| DLQ record for the failed delivery | none | **still none** (`central-broken-target-dlq 0` after the denied delivery; `task dlq` empty) | `DeadLetterConfig` is still inert; DLQ delivery and latency stay **sandbox-only** |
+| input transformer on a bus target | accepted at `PutTargets`, event dropped at delivery | **rejected at `PutTargets`**: `ValidationException: Modifying the input for target forward-to-bus is not supported` (`task test-transformer` fails in `terraform apply`) | this is AWS's own error text; the licensed provider models the real restriction, same-account included. `task probe` row `InputTransformer on a bus target` reproduces it without Terraform |
+| `CreateArchive` with `ENFORCE_IAM=1` | ok | **500 InternalError**: LocalStack creates the archive's internal rule as `events.amazonaws.com` and its own IAM engine denies `events:PutRule` on it | LocalStack bug; archives need `ENFORCE_IAM=0` |
+| `CreateArchive` / `StartReplay` with `ENFORCE_IAM=0` | create ok, replay 500 | create ok, **replay still 500** with the same `replace() takes at least 2 positional arguments` traceback | the replay bug is in both editions; **replay is sandbox-only, full stop** |
+| broken target with `ENFORCE_IAM=0` | delivered to the policy-less queue | delivered to the policy-less queue (`central-broken-target 1`) | without IAM enforcement the licensed image behaves like Community |
+
+`ENFORCE_IAM=1` also warns `No IAM action found for given operation events:ListTagsForResource. Falling back to allow` on every Terraform read; harmless.
+
+**Net effect of the licence:** one gap closes (resource policies and roles are enforced, so a misconfigured policy fails locally) and one claim hardens (the transformer restriction is rejected at the API with AWS's wording). The three findings that drive the recommendation — the one-hop limit, no DLQ records, broken replay — are unchanged. A licence is worth having for day one because of IAM enforcement alone; it does not remove the need for the sandbox run.
+
 ## Differences from docs/architecture assumptions
 
 1. **ADR-001 (fan-out-all) assumes a second bus-to-bus hop.** EventBridge Classic buses deliver exactly one bus-to-bus hop; an event that arrived on `central-bus` via a rule is not forwarded again by central's rules. Both the same-account and cross-account pages say so. LocalStack hides this.
@@ -74,7 +97,7 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven) and keep the fan-out *pattern* on central (proven), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). Run `pytest -m sandbox` once against the real topology before day one to see the drop with your own eyes; it is an hour.
 2. **ADR-006 — drop "input transformer on the forward rule" from `revisit_when`.** The only viable path is a distinct public event with `derivedFrom`; say so.
 3. **ADR-008 / testing.md — mark replay, DLQ delivery, resource policies and IAM roles `sandbox-only`.** platform-local must stub them honestly (an `expect_dlq` that reads LocalStack's `TargetDeliveryFailure` log line is the most it can do) and the nightly sandbox run becomes a release gate for those mechanisms, not a nice-to-have.
-4. **Day one toolchain — pin `localstack/localstack:4.14.0` explicitly, or buy a licence.** Decide before platform-local is cut; the version string ends up in every domain's compose file.
+4. **Day one toolchain — use the licensed image with `ENFORCE_IAM=1` for platform-local and CI** (the token is already available on this machine; the Taskfile shows the pattern). It is the only way IAM roles and resource policies fail locally, and it is the only line receiving fixes. Keep `4.14.0` as the documented no-licence fallback and note it cannot enforce IAM. Archives need `ENFORCE_IAM=0` until LocalStack fixes its internal archive rule.
 5. **Add a named trigger to ADR-001 and ADR-008: evaluate the EventBridge Custom Event Bus** (one shared bus, per-account subscribers, retention, FIFO, dedup, replay) in the sandbox before Step 4 commits real accounts. If it holds up, it supersedes fan-out-all, the native archive and part of the compactor at once; the catalog generator would emit subscribers instead of rules. Do not build on it on day one: ten days old, no local emulation.
 6. **Spike C** can proceed on LocalStack for everything pattern-shaped (forward, fan-out, consumer rules, own-event exclusion, pattern sizes); it must not claim end-to-end delivery across two hops as proven.
 

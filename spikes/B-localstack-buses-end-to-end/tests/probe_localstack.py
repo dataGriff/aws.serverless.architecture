@@ -93,6 +93,31 @@ def probe_archive_replay() -> list[tuple[str, str]]:
     return rows
 
 
+def probe_transformer_on_bus_target() -> list[tuple[str, str]]:
+    """Does PutTargets accept an InputTransformer when the target is another event bus?
+    AWS rejects it ("Modifying the input for target ... is not supported"); Community 4.14 accepts it and then drops events."""
+    rule, bus = "probe-transformer", "orders-bus"
+    role = events.list_targets_by_rule(Rule="orders-public-forward", EventBusName=bus)["Targets"][0]["RoleArn"]
+    events.put_rule(Name=rule, EventBusName=bus, EventPattern=json.dumps({"detail-type": ["ProbeTransformer.v1"]}))
+    try:
+        r = events.put_targets(Rule=rule, EventBusName=bus, Targets=[{
+            "Id": "bus", "Arn": "arn:aws:events:eu-west-2:000000000000:event-bus/central-bus", "RoleArn": role,
+            "InputTransformer": {"InputPathsMap": {"eventId": "$.detail.eventId"},
+                                 "InputTemplate": '{"eventId": <eventId>}'}}])
+        failed = r.get("FailedEntries") or []
+        return [("InputTransformer on a bus target (PutTargets)",
+                 f"REJECTED in response: {failed[0]['ErrorCode']} {failed[0]['ErrorMessage'][:80]}" if failed
+                 else "ACCEPTED (AWS would reject this)")]
+    except Exception as e:  # noqa: BLE001
+        return [("InputTransformer on a bus target (PutTargets)", f"REJECTED: {type(e).__name__}: {str(e)[-110:]}")]
+    finally:
+        try:
+            events.remove_targets(Rule=rule, EventBusName=bus, Ids=["bus"])
+        except Exception:  # noqa: BLE001
+            pass
+        events.delete_rule(Name=rule, EventBusName=bus)
+
+
 def probe_ordering(n: int = 20) -> list[tuple[str, str]]:
     """Put n events one after another on orders-bus; read the order they reach payments' probe (two hops)."""
     q = queues()["payments_probe"]
@@ -109,5 +134,5 @@ def probe_ordering(n: int = 20) -> list[tuple[str, str]]:
 if __name__ == "__main__":
     print(f"LocalStack: {version()}\n")
     print("| Probe | Result |\n| --- | --- |")
-    for n, r in probe_operators() + probe_archive_replay() + probe_ordering():
+    for n, r in probe_operators() + probe_transformer_on_bus_target() + probe_archive_replay() + probe_ordering():
         print(f"| {n} | {r} |")

@@ -19,9 +19,11 @@ PATTERNS = Path(__file__).resolve().parents[1] / "patterns"
 # two-hop assertion below is a LocalStack-only result until a sandbox run says otherwise. See findings.md.
 TWO_HOPS = pytest.mark.sandbox
 
-LOCALSTACK_GAP = "LocalStack Community 4.14: logs TargetDeliveryFailure but never writes to the DLQ, and does not enforce SQS resource policies — sandbox-only"
-TRANSFORMER_GAP = ("LocalStack 4.14 applies the transformer to the whole PutEvents entry (DetailType lost → InvalidArgument); "
-                   "on AWS, InputTransformer is not available at all for a cross-account bus target (PutTargets API docs) — ADR-006 trigger must change")
+LOCALSTACK_GAP = ("LocalStack never writes to a target DLQ: Community 4.14 logs TargetDeliveryFailure and does not enforce the SQS policy; "
+                  "2026.9 with ENFORCE_IAM logs AccessDenied and withholds the event, but still no DLQ record — sandbox-only")
+TRANSFORMER_GAP = ("Community 4.14 accepts the transformer then drops the event (DetailType lost → InvalidArgument); "
+                   "2026.9 rejects it at PutTargets: 'Modifying the input for target ... is not supported' (apply fails, this test never runs); "
+                   "AWS: InputTransformer unavailable on bus targets — ADR-006 trigger must change")
 
 
 @pytest.fixture(autouse=True)

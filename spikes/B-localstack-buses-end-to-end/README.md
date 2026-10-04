@@ -6,6 +6,7 @@ Prompt: `docs/architecture/prompts/spikes/B-localstack-buses-end-to-end.md` (or 
 ```sh
 mise install          # terraform, task, uv, awscli (root .mise.toml)
 task up               # LocalStack Community 4.14.0 (pinned; `latest` needs a licence token)
+task up LICENSED=true # LocalStack 2026.09.0 with ENFORCE_IAM; needs LOCALSTACK_AUTH_TOKEN exported (never commit it)
 task apply            # 3 buses · forward + fan-out rules · consumer rules · probes · broken target
 task test             # 12 tests; names are the contract (11 pass, 1 xfail on LocalStack)
 task probe            # pattern operators, archive/replay, ordering — prints a table

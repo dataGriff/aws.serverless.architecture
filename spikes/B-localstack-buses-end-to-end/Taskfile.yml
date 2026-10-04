@@ -11,9 +11,17 @@ tasks:
     cmds:
       - task --list
   up:
-    desc: Start LocalStack and wait for it
+    desc: "Start LocalStack and wait for it (LICENSED=true → 2026.09.0, needs LOCALSTACK_AUTH_TOKEN; ENFORCE_IAM=0 to relax IAM)"
     cmds:
-      - docker compose up -d
+      - |
+        if [ "{{.LICENSED}}" = "true" ]; then
+          # token from the environment, else from the user's interactive shell rc (never from a file in this repo)
+          export LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN:-$(zsh -ic 'printf %s "$LOCALSTACK_AUTH_TOKEN"' 2>/dev/null)}"
+          export ENFORCE_IAM={{.ENFORCE_IAM | default "1"}}
+          docker compose -f docker-compose.yml -f docker-compose.licensed.yml up -d
+        else
+          docker compose up -d
+        fi
       - until curl -sf $AWS_ENDPOINT_URL/_localstack/health >/dev/null; do sleep 1; done; echo ready
   down:
     desc: Stop LocalStack, wipe state
