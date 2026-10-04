@@ -40,6 +40,14 @@ One `awscc_eventsv2_event_bus` (7-day retention). Six `awscc_eventsv2_subscriber
 | replay: subscriber created after the fact with `StartingPosition=POINT_IN_TIME`, `PointType=TIMESTAMP` | the earlier event is re-delivered with `SystemMetadata."aws:DeliveryType"=REPLAY` and identical `Data`; subscriber reached `RUNNING` and delivered within the 180 s budget | `test_replay_via_point_in_time_subscriber_marks_events_replay` |
 | unreachable target → subscriber DLQ | record arrives after the 1-attempt / 60 s policy with `ERROR_CODE=ACCESS_DENIED`, "EventBridge could not access … Check that it exists and that its policy allows the EventBridge service principal access", `EXHAUSTED_RETRY_CONDITION=MaximumRetryAttempts`, `RETRY_ATTEMPTS=1`; the failed event is inside `failedMessages` | `test_broken_target_lands_in_subscriber_dlq` |
 
+## Recommended topology: Classic domain buses stay, central becomes Custom
+
+This is the topology the spike tested. Each domain keeps its Classic bus for internal events, its outbox relay and the generated public-forward rule; only that rule's target changes, to the Custom central bus (one hop, proven). Each domain creates subscribers on central, from its own account, for the public events it `receives[]`, targeting its own queues and functions. Consumers never go via the domain bus.
+
+Why not publish straight onto central and drop the domain bus: the Classic domain bus is what LocalStack can emulate, so domain-local tests keep a bus; access on a Custom bus is per bus, so internal events on a shared bus would be readable by every subscribing account; and the domain side of the catalog generator is untouched. Trade-off: internal events keep Classic semantics (no retention, no FIFO). Trigger: a domain that needs those internally gets its own Custom bus and loses LocalStack for it.
+
+Hard rule from the loop tests: **no subscriber may target a Classic bus that forwards into the same central bus.** One direction is refused with `LOOP_DETECTED`, the other is dropped silently.
+
 ## Operational facts the generator and runbooks must respect
 
 - **One subscriber create/delete at a time per bus.** Terraform's default parallelism hit `409 ResourceConflict ("This resource was modified concurrently")` on two of six subscribers; `-parallelism=1` fixed it. The generator's apply step must serialise subscriber changes per bus.
