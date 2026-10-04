@@ -26,14 +26,14 @@ rules:
     then: { field: operationId, function: truthy }
   commands-are-post:
     description: Commands are POST (conventions.md)
-    given: "$.paths[*][get,put,patch,delete][?(@['x-eventcatalog-message-type'] == 'command')]"
+    given: "$.paths[*][get,put,patch,delete]"
     severity: error
-    then: { function: falsy }
+    then: { field: x-eventcatalog-message-type, function: pattern, functionOptions: { notMatch: "^command$" } }
   queries-are-get:
     description: Queries are GET (conventions.md)
-    given: "$.paths[*][post,put,patch,delete][?(@['x-eventcatalog-message-type'] == 'query')]"
+    given: "$.paths[*][post,put,patch,delete]"
     severity: error
-    then: { function: falsy }
+    then: { field: x-eventcatalog-message-type, function: pattern, functionOptions: { notMatch: "^query$" } }
   post-requires-idempotency-key:
     description: Commands (POST) require an Idempotency-Key header parameter (conventions.md)
     given: "$.paths[*].post"

@@ -1,0 +1,37 @@
+{
+  "consumers": {
+    "rules/orders-consumer-payment-captured.json": [
+      "order-service"
+    ],
+    "rules/payments-consumer-order-placed.json": [
+      "payment-service"
+    ]
+  },
+  "files": [
+    "archive/routing-map.json",
+    "catalog/events/OrderPlaced/odcs.yaml",
+    "catalog/events/PaymentCaptured/odcs.yaml",
+    "parquet/OrderPlaced.v1.json",
+    "parquet/PaymentCaptured.v1.json",
+    "rules/orders-consumer-payment-captured.json",
+    "rules/orders-fan-out.enumerated.json",
+    "rules/orders-fan-out.json",
+    "rules/orders-public-forward.json",
+    "rules/payments-consumer-order-placed.json",
+    "rules/payments-fan-out.enumerated.json",
+    "rules/payments-fan-out.json",
+    "rules/payments-public-forward.json",
+    "validation/orders.json",
+    "validation/payments.json"
+  ],
+  "order": [
+    "validation",
+    "parquet",
+    "rules/*-public-forward*",
+    "rules/*-fan-out*",
+    "rules/*-consumer-*",
+    "archive",
+    "catalog/events/*/odcs.yaml"
+  ],
+  "splitRules": []
+}

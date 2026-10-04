@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/OrderPlaced/2/schema.json",
+  "title": "OrderPlaced",
+  "description": "FIXTURE v2 — drops customerEmail (consumers fetch it via the API) and widens total to Money only. Breaking vs v1, so it must be OrderPlaced.v2.",
+  "type": "object",
+  "properties": {
+    "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "total": { "$ref": "../../schemas/Money.json", "x-pii": "none" },
+    "placedAt": { "type": "string", "format": "date-time", "x-pii": "none" },
+    "channel": { "type": "string", "enum": ["web", "app", "phone"], "x-pii": "none" }
+  },
+  "required": ["orderId", "customerId", "total", "placedAt"],
+  "additionalProperties": false
+}

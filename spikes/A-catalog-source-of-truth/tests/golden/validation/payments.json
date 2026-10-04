@@ -1,0 +1,106 @@
+{
+  "PaymentCaptured.v1": {
+    "ciphertextFields": [],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateId": {
+          "type": "string",
+          "x-pii": "indirect"
+        },
+        "aggregateVersion": {
+          "minimum": 0,
+          "type": "integer",
+          "x-pii": "none"
+        },
+        "amount": {
+          "additionalProperties": false,
+          "description": "Value object. Amount as a decimal string with ISO 4217 currency.",
+          "properties": {
+            "amount": {
+              "format": "decimal",
+              "pattern": "^-?[0-9]+(\\.[0-9]{1,4})?$",
+              "type": "string",
+              "x-pii": "none"
+            },
+            "currency": {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string",
+              "x-pii": "none"
+            }
+          },
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "title": "Money",
+          "type": "object",
+          "x-kind": "value-object",
+          "x-pii": "none"
+        },
+        "attempt": {
+          "minimum": 1,
+          "type": "integer",
+          "x-pii": "none"
+        },
+        "capturedAt": {
+          "format": "date-time",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "causationId": {
+          "type": "string",
+          "x-pii": "none"
+        },
+        "correlationId": {
+          "type": "string",
+          "x-pii": "none"
+        },
+        "customerId": {
+          "type": "string",
+          "x-pii": "indirect"
+        },
+        "eventId": {
+          "format": "uuid",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "occurredAt": {
+          "format": "date-time",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "orderId": {
+          "format": "uuid",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "paymentId": {
+          "format": "uuid",
+          "type": "string",
+          "x-pii": "none"
+        },
+        "replay": {
+          "type": "boolean",
+          "x-pii": "none"
+        }
+      },
+      "required": [
+        "aggregateId",
+        "aggregateVersion",
+        "amount",
+        "capturedAt",
+        "customerId",
+        "eventId",
+        "occurredAt",
+        "orderId",
+        "paymentId",
+        "replay"
+      ],
+      "title": "PaymentCaptured (detail)",
+      "type": "object"
+    },
+    "source": "payments.payment-service"
+  }
+}

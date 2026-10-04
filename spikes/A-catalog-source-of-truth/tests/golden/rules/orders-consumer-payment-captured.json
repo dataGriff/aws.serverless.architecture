@@ -1,0 +1,10 @@
+{
+  "detail-type": [
+    "PaymentCaptured.v1"
+  ],
+  "source": [
+    {
+      "prefix": "payments."
+    }
+  ]
+}

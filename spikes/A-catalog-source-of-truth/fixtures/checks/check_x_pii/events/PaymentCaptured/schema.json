@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PaymentCaptured",
+  "type": "object",
+  "properties": {
+    "paymentId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "amount": { "$ref": "../../schemas/Money.json", "x-pii": "none" },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "cardholderHealthNote": { "type": "string", "x-pii": "special" }
+  },
+  "required": ["paymentId", "orderId", "customerId", "amount", "capturedAt"],
+  "additionalProperties": false
+}

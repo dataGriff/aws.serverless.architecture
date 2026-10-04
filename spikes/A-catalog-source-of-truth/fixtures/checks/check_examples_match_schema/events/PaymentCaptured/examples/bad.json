@@ -1,0 +1,22 @@
+{
+  "version": "0",
+  "id": "ffffffff-0000-4000-8000-000000000001",
+  "detail-type": "PaymentCaptured",
+  "source": "payments.payment-service",
+  "account": "222222222222",
+  "time": "2026-10-04T09:15:09Z",
+  "region": "eu-west-2",
+  "resources": [],
+  "detail": {
+    "eventId": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+    "occurredAt": "2026-10-04T09:15:08.910Z",
+    "replay": false,
+    "aggregateId": "pay_01J9Q41B2C3D4E5F6G7H8J9K0L",
+    "aggregateVersion": 2,
+    "paymentId": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b",
+    "orderId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    "customerId": "cus_01J9Q3Y1A2B3C4D5E6F7G8H9J0",
+    "amount": "42.50 GBP",
+    "capturedAt": "2026-10-04T09:15:08.900Z"
+  }
+}

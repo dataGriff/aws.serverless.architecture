@@ -1,0 +1,38 @@
+---
+id: order-service
+name: Order service
+version: 1.0.0
+summary: FIXTURE — routes an internal event to central-bus.
+owners:
+  - orders-team
+sends:
+  - id: OrderPlaced
+    version: 1.0.0
+    to:
+      - id: orders-bus
+      - id: central-bus
+  - id: order.aggregate.updated
+    version: 1.0.0
+    to:
+      - id: orders-bus
+      - id: central-bus
+receives:
+  - id: PaymentCaptured
+    version: 1.0.0
+    from:
+      - id: orders-bus
+  - id: PlaceOrder
+    version: 1.0.0
+    from:
+      - id: orders-api
+  - id: GetOrder
+    version: 1.0.0
+    from:
+      - id: orders-api
+specifications:
+  - type: openapi
+    path: openapi.yaml
+    name: Orders API v1
+x-account: orders
+x-bus: orders-bus
+---

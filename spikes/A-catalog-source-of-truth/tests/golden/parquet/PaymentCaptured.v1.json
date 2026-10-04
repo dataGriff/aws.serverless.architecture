@@ -1,0 +1,131 @@
+{
+  "columns": [
+    {
+      "classification": "none",
+      "name": "id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "source",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "detail_type",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "bus_time",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    },
+    {
+      "classification": "none",
+      "name": "event_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "occurred_at",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    },
+    {
+      "classification": "none",
+      "name": "correlation_id",
+      "nullable": true,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "causation_id",
+      "nullable": true,
+      "type": "string"
+    },
+    {
+      "classification": "indirect",
+      "name": "aggregate_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "aggregate_version",
+      "nullable": false,
+      "type": "int64"
+    },
+    {
+      "classification": "none",
+      "name": "replay",
+      "nullable": false,
+      "type": "bool"
+    },
+    {
+      "classification": "none",
+      "name": "pii_class",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "indirect",
+      "description": "Full payload as JSON; direct fields are ciphertext envelopes",
+      "name": "detail",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_payment_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_order_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "indirect",
+      "name": "d_customer_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_amount",
+      "nullable": false,
+      "type": "decimal128(18,4)"
+    },
+    {
+      "classification": "none",
+      "name": "d_amount_currency",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_captured_at",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    },
+    {
+      "classification": "none",
+      "name": "d_attempt",
+      "nullable": true,
+      "type": "int64"
+    }
+  ],
+  "partitioning": [
+    "dt",
+    "hour"
+  ],
+  "piiClassMax": "indirect",
+  "table": "silver/payments.payment-service/PaymentCaptured.v1/"
+}

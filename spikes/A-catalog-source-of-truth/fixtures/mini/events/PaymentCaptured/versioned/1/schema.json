@@ -1,1 +1,0 @@
-{"type":"object","properties":{"paymentId":{"type":"string","x-pii":"none"},"customerId":{"type":"string","x-pii":"indirect"}}}

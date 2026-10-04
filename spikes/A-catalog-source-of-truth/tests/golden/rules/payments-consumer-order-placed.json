@@ -1,0 +1,10 @@
+{
+  "detail-type": [
+    "OrderPlaced.v1"
+  ],
+  "source": [
+    {
+      "prefix": "orders."
+    }
+  ]
+}

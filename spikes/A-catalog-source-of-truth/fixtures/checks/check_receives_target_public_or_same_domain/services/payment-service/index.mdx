@@ -1,0 +1,29 @@
+---
+id: payment-service
+name: Payment service
+version: 1.0.0
+summary: FIXTURE — receives an internal event of another domain.
+owners:
+  - payments-team
+sends:
+  - id: PaymentCaptured
+    version: 1.0.0
+    to:
+      - id: payments-bus
+      - id: central-bus
+  - id: GetOrder
+    version: 1.0.0
+    to:
+      - id: orders-api
+receives:
+  - id: OrderPlaced
+    version: 1.0.0
+    from:
+      - id: payments-bus
+  - id: order.aggregate.updated
+    version: 1.0.0
+    from:
+      - id: payments-bus
+x-account: payments
+x-bus: payments-bus
+---

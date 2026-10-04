@@ -1,0 +1,27 @@
+---
+id: payment-service
+name: Payment service
+version: 1.0.0
+summary: FIXTURE — provides GetPayment and calls GetOrder, so shipping -> payments -> orders is two hops.
+owners:
+  - payments-team
+sends:
+  - id: PaymentCaptured
+    version: 1.0.0
+    to:
+      - id: payments-bus
+      - id: central-bus
+  - id: GetOrder
+    version: 1.0.0
+    to:
+      - id: orders-api
+receives:
+  - id: OrderPlaced
+    version: 1.0.0
+    from:
+      - id: payments-bus
+  - id: GetPayment
+    version: 1.0.0
+x-account: payments
+x-bus: payments-bus
+---

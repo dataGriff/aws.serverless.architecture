@@ -1,0 +1,13 @@
+---
+id: shipping-service
+name: Shipping service
+version: 1.0.0
+summary: FIXTURE — calls payments, which calls orders. Two hops.
+owners:
+  - platform-team
+sends:
+  - id: GetPayment
+    version: 1.0.0
+receives: []
+x-account: shipping
+---

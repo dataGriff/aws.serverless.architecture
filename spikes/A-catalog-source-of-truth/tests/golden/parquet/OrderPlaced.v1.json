@@ -1,0 +1,119 @@
+{
+  "columns": [
+    {
+      "classification": "none",
+      "name": "id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "source",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "detail_type",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "bus_time",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    },
+    {
+      "classification": "none",
+      "name": "event_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "occurred_at",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    },
+    {
+      "classification": "none",
+      "name": "correlation_id",
+      "nullable": true,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "causation_id",
+      "nullable": true,
+      "type": "string"
+    },
+    {
+      "classification": "indirect",
+      "name": "aggregate_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "aggregate_version",
+      "nullable": false,
+      "type": "int64"
+    },
+    {
+      "classification": "none",
+      "name": "replay",
+      "nullable": false,
+      "type": "bool"
+    },
+    {
+      "classification": "none",
+      "name": "pii_class",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "direct",
+      "description": "Full payload as JSON; direct fields are ciphertext envelopes",
+      "name": "detail",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_order_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "indirect",
+      "name": "d_customer_id",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_total",
+      "nullable": false,
+      "type": "decimal128(18,4)"
+    },
+    {
+      "classification": "none",
+      "name": "d_total_currency",
+      "nullable": false,
+      "type": "string"
+    },
+    {
+      "classification": "none",
+      "name": "d_placed_at",
+      "nullable": false,
+      "type": "timestamp[us,UTC]"
+    }
+  ],
+  "partitioning": [
+    "dt",
+    "hour"
+  ],
+  "piiClassMax": "direct",
+  "table": "silver/orders.order-service/OrderPlaced.v1/"
+}
