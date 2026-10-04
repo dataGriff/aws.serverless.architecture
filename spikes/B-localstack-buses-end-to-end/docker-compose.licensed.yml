@@ -1,0 +1,8 @@
+# Override for the licensed image: task up LICENSED=true
+# Needs LOCALSTACK_AUTH_TOKEN in the environment (never in this file).
+services:
+  localstack:
+    image: localstack/localstack:2026.09.0
+    environment:
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:?set LOCALSTACK_AUTH_TOKEN}
+      - ENFORCE_IAM=${ENFORCE_IAM:-1}

@@ -6,26 +6,49 @@ env:
   AWS_DEFAULT_REGION: eu-west-2
 vars:
   TF_DIR: terraform/envs/local
+  # real-AWS prefix: drop the LocalStack env above, pick the SSO profile (PROFILE= to override)
+  SANDBOX: env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY AWS_PROFILE={{.PROFILE | default "admin"}}
 tasks:
-  default: { cmds: [task --list] }
-  up:
-    desc: Start LocalStack and wait for it
+  default:
     cmds:
-      - docker compose up -d
+      - task --list
+  up:
+    desc: "Start LocalStack and wait for it (LICENSED=true → 2026.09.0, needs LOCALSTACK_AUTH_TOKEN; ENFORCE_IAM=0 to relax IAM)"
+    cmds:
+      - |
+        if [ "{{.LICENSED}}" = "true" ]; then
+          # token from the environment, else from ~/.zshrc.local (non-interactive: rc hooks cannot pollute the value; never from a file in this repo)
+          export LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN:-$(zsh -c 'source ~/.zshrc.local >/dev/null 2>&1; printf %s "$LOCALSTACK_AUTH_TOKEN"')}"
+          export ENFORCE_IAM={{.ENFORCE_IAM | default "1"}}
+          docker compose -f docker-compose.yml -f docker-compose.licensed.yml up -d
+        else
+          docker compose up -d
+        fi
       - until curl -sf $AWS_ENDPOINT_URL/_localstack/health >/dev/null; do sleep 1; done; echo ready
-  down: { desc: Stop LocalStack, wipe state, cmds: [docker compose down -v, rm -f .queues.json] }
-  init: { dir: "{{.TF_DIR}}", cmds: [terraform init -input=false] }
+  down:
+    desc: Stop LocalStack, wipe state
+    cmds:
+      - docker compose down -v
+      - rm -f .queues.json .dlqs.json {{.TF_DIR}}/terraform.tfstate {{.TF_DIR}}/terraform.tfstate.backup
+  init:
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform init -input=false
   apply:
     desc: "Apply (vars: FAN_OUT=anything-but|enumerated, TRANSFORMER=true|false)"
     dir: "{{.TF_DIR}}"
     deps: [init]
     cmds:
-      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}}
-      - rm -f ../../../.queues.json
+      - terraform apply -input=false -auto-approve -var fan_out_variant={{.FAN_OUT | default "anything-but"}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
+      - rm -f ../../../.queues.json ../../../.dlqs.json
   test:
-    desc: Run the spike tests (excludes the transformer test unless TRANSFORMER=true)
+    desc: Run the spike tests on LocalStack (sandbox-marked tests are excluded — LocalStack gives false positives for them; see findings)
     cmds:
-      - uv run --with boto3 --with pytest pytest -q tests -m "not transformer" {{.CLI_ARGS}}
+      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer and not sandbox" {{.CLI_ARGS}}
+  test-all-local:
+    desc: Run every test on LocalStack including sandbox-marked ones, to see the false positives for yourself
+    cmds:
+      - uv run --with boto3 --with pytest --with duckdb pytest -q tests -m "not transformer" {{.CLI_ARGS}}
   test-transformer:
     desc: Apply with the transformer rule and run only that test
     cmds:
@@ -34,12 +57,65 @@ tasks:
       - uv run --with boto3 --with pytest pytest -q tests -m transformer
   send:
     desc: "Put a sample event: task send -- events/order-placed.json"
-    cmds: [aws events put-events --entries file://{{.CLI_ARGS}}]
-  dlq:
-    desc: Peek at the broken-target DLQ
     cmds:
-      - aws sqs receive-message --queue-url $(cd {{.TF_DIR}} && terraform output -json queues | python3 -c 'import json,sys;print(json.load(sys.stdin)["broken_target_dlq"])') --max-number-of-messages 10 --message-attribute-names All
-  sizes: { desc: Pattern sizes in bytes, dir: "{{.TF_DIR}}", cmds: [terraform output -json pattern_sizes] }
+      - aws events put-events --entries file://{{.CLI_ARGS}}
+  dlq:
+    desc: Peek at the broken-target DLQ (messages stay on the queue)
+    cmds:
+      - aws sqs receive-message --queue-url $(terraform -chdir={{.TF_DIR}} output -raw broken_target_dlq_url) --max-number-of-messages 10 --message-attribute-names All --visibility-timeout 0
+  sizes:
+    desc: Pattern sizes in bytes
+    dir: "{{.TF_DIR}}"
+    cmds:
+      - terraform output -json pattern_sizes
+  probe:
+    desc: "LocalStack feature probes (archive/replay, pattern operators) — prints a table for findings.md"
+    cmds:
+      - uv run --with boto3 python3 tests/probe_localstack.py
+  query:
+    desc: "DuckDB over the central archive in S3: task query  (or task query -- \"SELECT ... FROM archive\")"
+    cmds:
+      - uv run --with boto3 --with duckdb python3 tests/query_archive.py {{.CLI_ARGS}}
+  probe-firehose:
+    desc: "Outside Spike B's boundary: apply a Firehose stream on central (validation Lambda, dynamic partitioning, processing-failed/) and report what LocalStack honours"
+    cmds:
+      - task: apply
+        vars: { FIREHOSE: "true" }
+      - uv run --with boto3 --with duckdb python3 tests/probe_firehose.py
+  # ---- real AWS sandbox (profile via PROFILE=, default admin). LocalStack env vars are unset for these. ----
+  sandbox-apply:
+    desc: "Apply buses, rules and probes to a real AWS account: task sandbox-apply [PROFILE=admin]"
+    dir: terraform/envs/sandbox
+    cmds:
+      - "{{.SANDBOX}} terraform init -input=false"
+      - "{{.SANDBOX}} terraform apply -input=false -auto-approve"
+      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
+  sandbox-test:
+    desc: "Run the suite against the sandbox, sandbox-marked tests included (archiver/DuckDB tests skip): task sandbox-test [PROFILE=admin] [-- -k ...]"
+    cmds:
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 --with pytest pytest -v -rxXs tests -m \"not transformer\" {{.CLI_ARGS}}"
+  sandbox-depths:
+    desc: Queue depths in the sandbox
+    cmds:
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/queue_depths.py"
+  sandbox-dlq-peek:
+    desc: Every sandbox DLQ record with its ERROR_CODE / ERROR_MESSAGE
+    cmds:
+      - "{{.SANDBOX}} SPIKE_TARGET=sandbox uv run --with boto3 python3 tests/dlq_peek.py"
+  sandbox-destroy:
+    desc: Tear the sandbox resources down
+    dir: terraform/envs/sandbox
+    cmds:
+      - "{{.SANDBOX}} terraform destroy -input=false -auto-approve"
+      - rm -f ../../../.queues.sandbox.json ../../../.dlqs.sandbox.json
+  depths:
+    desc: Depth of every queue (probes, consumers, DLQs)
+    cmds:
+      - uv run --with boto3 python3 tests/queue_depths.py
   reset:
     desc: down → up → apply → test
-    cmds: [{task: down}, {task: up}, {task: apply}, {task: test}]
+    cmds:
+      - task: down
+      - task: up
+      - task: apply
+      - task: test

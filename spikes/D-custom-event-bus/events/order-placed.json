@@ -1,0 +1,8 @@
+[
+  {
+    "EventBusName": "orders-bus",
+    "Source": "orders.order-service",
+    "DetailType": "OrderPlaced.v1",
+    "Detail": "{\"eventId\": \"11111111-1111-1111-1111-111111111111\", \"occurredAt\": \"2026-10-04T15:00:00Z\", \"correlationId\": \"c-1\", \"causationId\": null, \"aggregateId\": \"order-123\", \"aggregateVersion\": 1, \"total\": 42.0, \"internalNote\": \"should not matter\"}"
+  }
+]

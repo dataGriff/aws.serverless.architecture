@@ -9,6 +9,7 @@ Suggested layout: `spikes/A-catalog-source-of-truth/`, `spikes/B-localstack-buse
 | A | [Spike A · EventCatalog as the source of truth (no AWS)](A-catalog-source-of-truth.md) | Node, Python/uv | `/arch:spike-a-catalog-source-of-truth` |
 | B | [Spike B · Domain bus ↔ central bus end to end on LocalStack (no catalog)](B-localstack-buses-end-to-end.md) | Docker, LocalStack, Terraform | `/arch:spike-b-localstack-buses-end-to-end` |
 | C | [Spike C · Join — generated patterns drive the LocalStack buses](C-join-catalog-to-buses.md) | A and B green | `/arch:spike-c-join-catalog-to-buses` |
+| D | Spike D · EventBridge Custom Event Bus as the central bus (added after B found the Classic one-hop limit; no prompt file — see `spikes/D-custom-event-bus/README.md`) | real AWS account, eu-west-1, `awscc` provider | `task -d spikes/D-custom-event-bus apply test destroy` |
 
 ## What to do with the findings
 
