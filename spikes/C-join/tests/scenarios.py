@@ -140,7 +140,8 @@ def check_snapshot(name: str, changes: list[dict]) -> None:
     """Compare with snapshots/<name>.json; UPDATE_SNAPSHOTS=1 rewrites it."""
     path = SNAPSHOTS / f"{name}.json"
     text = json.dumps(changes, indent=2, sort_keys=True) + "\n"
-    if os.environ.get("UPDATE_SNAPSHOTS") or not path.exists():
+    if os.environ.get("UPDATE_SNAPSHOTS"):
         SNAPSHOTS.mkdir(exist_ok=True)
         path.write_text(text)
+    assert path.exists(), f"no snapshot for {name}; review the plan below and run UPDATE_SNAPSHOTS=1 to create snapshots/{name}.json:\n{text}"
     assert path.read_text() == text, f"plan for {name} differs from snapshots/{name}.json (UPDATE_SNAPSHOTS=1 to accept):\n{text}"

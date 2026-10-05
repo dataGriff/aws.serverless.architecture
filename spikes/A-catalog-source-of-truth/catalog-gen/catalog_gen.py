@@ -494,7 +494,8 @@ def emit_subscribers(cat: Catalog) -> dict[str, str]:
 def target_ref(service: str) -> dict:
     """The consumer-owned target a subscriber (or a same-domain consumer rule) delivers to: the service's inbox
     queue in its own account, created by the domain, referenced by name. Spike C found `targets: [service]` was
-    decoration; Terraform needs something it can resolve."""
+    decoration; this gives day-one Terraform a name to resolve. Spike C's own env still creates one queue per
+    subscriber and records this only as a tag (see C-join/findings.md, open questions)."""
     return {"service": service, "type": "sqs", "queue": f"{service}-inbox"}
 
 

@@ -32,7 +32,7 @@ tasks:
     desc: Stop LocalStack, wipe state
     cmds:
       - docker compose down -v
-      - rm -f .queues.json .dlqs.json .archive_buckets.json {{.TF_DIR}}/terraform.tfstate {{.TF_DIR}}/terraform.tfstate.backup
+      - rm -f .queues.json .dlqs.json .archive_buckets.json .generated_dir.json {{.TF_DIR}}/terraform.tfstate {{.TF_DIR}}/terraform.tfstate.backup
   deps:
     desc: Install the archive shim's validator (fastjsonschema, pure Python) where the Lambda zip picks it up
     cmds:
@@ -64,12 +64,19 @@ tasks:
     cmds:
       - task: gen
       - terraform apply -input=false -auto-approve {{.TF_VARS}}
-      - rm -f ../../../.queues.json ../../../.dlqs.json ../../../.archive_buckets.json
+      - rm -f ../../../.queues.json ../../../.dlqs.json ../../../.archive_buckets.json ../../../.generated_dir.json
   test:
     desc: "Drift gate (catalog → generated → applied), then the suite. sandbox-marked tests are excluded: LocalStack gives false positives for them (ADR-025)"
+    deps: [deps]
     cmds:
       - task: gen:check
-      - terraform -chdir={{.TF_DIR}} plan -input=false -detailed-exitcode {{.TF_VARS}} >/dev/null || { echo "applied buses drift from generated/ (run task apply)"; exit 1; }
+      - |
+        terraform -chdir={{.TF_DIR}} plan -input=false -detailed-exitcode {{.TF_VARS}} >/dev/null; rc=$?
+        case $rc in
+          0) ;;
+          2) echo "applied buses drift from generated/ (run task apply)"; exit 1 ;;
+          *) echo "terraform plan failed (exit $rc) — not drift; see the error above"; exit $rc ;;
+        esac
       - "{{.PYTEST}} -m \"not transformer and not sandbox\" {{.CLI_ARGS}}"
   test-all-local:
     desc: Run every test on LocalStack including sandbox-marked ones, to see the false positives for yourself

@@ -23,11 +23,15 @@ def load_bundles(folder: Path) -> dict[str, dict]:
     return out
 
 
+_ABSENT = object()
+
+
 def _get(detail: dict, dotted: str):
+    """Value at a dotted path, or _ABSENT when any segment is missing (absence is the schema's business)."""
     cur = detail
     for part in dotted.split("."):
         if not isinstance(cur, dict) or part not in cur:
-            return None
+            return _ABSENT
         cur = cur[part]
     return cur
 
@@ -44,7 +48,8 @@ def classify(event: dict, bundles: dict[str, dict]) -> tuple[str, str] | None:
     if not isinstance(detail, dict):
         return "schema", "detail is not an object"
     for field in entry["ciphertextFields"]:
-        if field in detail and not is_ciphertext(_get(detail, field)):
+        value = _get(detail, field)
+        if value is not _ABSENT and not is_ciphertext(value):
             return "pii-in-clear", f"{field} is classified direct and is not a ciphertext envelope"
     try:
         entry["validate"](detail)

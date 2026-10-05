@@ -35,7 +35,8 @@ def handler(event, _context):
         key, metadata = f"raw/{partition}", {}
     else:
         reason, message = verdict
-        key, metadata = f"processing-failed/reason={reason}/{partition}", {"reason": reason, "message": message[:1024]}
+        # S3 user metadata must be US-ASCII; validator messages echo event-supplied property names
+        key, metadata = f"processing-failed/reason={reason}/{partition}", {"reason": reason, "message": message[:1024].encode("ascii", "backslashreplace").decode()}
     bucket = bucket_for(event["source"])
     s3.put_object(Bucket=bucket, Key=key, Body=json.dumps(event).encode(), ContentType="application/json", Metadata=metadata)
     return {"bucket": bucket, "key": key, "verdict": verdict}

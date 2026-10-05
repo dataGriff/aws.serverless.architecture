@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from harness import (archived, bronze_ids, count_deliveries, dlq_count, drain, duck, envelope, example, expect,
+from harness import (archive_buckets, archived, bronze_ids, count_deliveries, dlq_count, drain, duck, envelope, example, expect,
                      expect_none, generated_dir, put, purge_all, quarantined, queues, rules_on)
 
 Q = queues()
@@ -106,7 +106,8 @@ def test_broken_target_lands_in_dlq():
 def test_every_deployed_rule_is_a_generated_file():
     """The nightly guardrail from generation-and-ci.md, run locally: on every bus, each rule that is not test
     scaffolding (probe, broken target, archiver) has a generated file whose pattern equals the deployed one."""
-    scaffolding = {"central-probe-all", "orders-probe-all", "payments-probe-all", "central-broken-target", "central-archive"}
+    buses = sorted({f"{p.rstrip('.')}-bus" for p in archive_buckets() if p} | {"central-bus"})   # from the routing map
+    scaffolding = {f"{b.removesuffix('-bus')}-probe-all" for b in buses} | {"central-broken-target", "central-archive"}
     expected = json.loads(open(GEN / "deploy-order.json").read())["files"]
     generated = {}
     for rel in expected:
@@ -116,7 +117,7 @@ def test_every_deployed_rule_is_a_generated_file():
             sub = json.loads((GEN / rel).read_text())
             generated[sub["name"]] = sub["filter"]
     deployed = {}
-    for bus in ("orders-bus", "payments-bus", "central-bus"):
+    for bus in buses:
         deployed.update({n: p for n, p in rules_on(bus).items() if n not in scaffolding and not n.startswith("orders-transformer")})
     assert set(deployed) == set(generated), f"hand-made or missing rules: {set(deployed) ^ set(generated)}"
     for name, pattern in deployed.items():
