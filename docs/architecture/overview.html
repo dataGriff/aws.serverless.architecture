@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Event &amp; API Platform</title>
+<meta name="description" content="Reference for the EventBridge-first, catalog-driven event and API platform: the shape, why there is one hop, what the catalog generates, the data layer, PII, decisions, testing and roadmap.">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html{color-scheme:light dark}
+
+:root{
+  --ground:#F2F5F7; --surface:#FFFFFF; --surface-2:#E7ECF0; --line:#C9D3DB;
+  --ink:#152029; --ink-2:#4A5A68; --ink-3:#7A8894;
+  --platform:#0B7A75; --platform-soft:#D5EFEC;
+  --hop:#C26A12; --hop-soft:#F8E6CF;
+  --refuse:#B23A3A; --refuse-soft:#F5DADA;
+  --code-bg:#E9EEF2;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0E1419; --surface:#141C23; --surface-2:#1C2730; --line:#2E3C48;
+  --ink:#E4EAEE; --ink-2:#AAB7C2; --ink-3:#7E8C98;
+  --platform:#3FB8B1; --platform-soft:#133634;
+  --hop:#E89A49; --hop-soft:#3B2A14;
+  --refuse:#E06C6C; --refuse-soft:#3E1F1F;
+  --code-bg:#1C2730;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E1419; --surface:#141C23; --surface-2:#1C2730; --line:#2E3C48;
+  --ink:#E4EAEE; --ink-2:#AAB7C2; --ink-3:#7E8C98;
+  --platform:#3FB8B1; --platform-soft:#133634;
+  --hop:#E89A49; --hop-soft:#3B2A14;
+  --refuse:#E06C6C; --refuse-soft:#3E1F1F;
+  --code-bg:#1C2730;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:0 72px}
+h1,h2,h3{font-family:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;letter-spacing:-0.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.4rem);font-weight:700;line-height:1.05}
+h2{font-size:clamp(1.45rem,2.6vw,1.9rem);font-weight:700;line-height:1.15}
+h3{font-size:1.1rem;font-weight:700}
+p{margin:0;max-width:68ch}
+.lede{font-size:1.15rem;color:var(--ink-2);max-width:66ch}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:0.88em;background:var(--code-bg);padding:0.1em 0.35em;border-radius:3px}
+a{color:var(--platform)}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);border-bottom:1px solid var(--line);margin-inline:-20px;padding:10px 20px;display:flex;gap:4px 18px;flex-wrap:wrap;font-size:0.85rem}
+nav.toc a{color:var(--ink-2);text-decoration:none;font-weight:500}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--ink);outline:none;text-decoration:underline}
+header.hero{padding-block:56px 32px;display:grid;gap:18px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:12px}
+.facts div{background:var(--surface);padding:12px 14px}
+.facts b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:1.05rem;font-weight:700}
+.facts span{font-size:0.85rem;color:var(--ink-2)}
+section{padding-block:40px;border-top:1px solid var(--line);display:grid;gap:18px}
+section > .intro{display:grid;gap:10px}
+figure{margin:0;display:grid;gap:10px}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);padding:12px}
+svg.diagram{display:block;max-width:100%;height:auto;min-width:640px;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px;color:var(--ink)}
+svg.diagram .box{fill:var(--surface);stroke:currentColor;stroke-width:1.2}
+svg.diagram .bus{fill:var(--surface-2);stroke:currentColor;stroke-width:1.2}
+svg.diagram .region{fill:none;stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 4}
+svg.diagram .platform{fill:var(--platform-soft);stroke:var(--platform)}
+svg.diagram .hop{stroke:var(--hop);stroke-width:2.2}
+svg.diagram .refuse{stroke:var(--refuse);stroke-width:2}
+svg.diagram .gen{stroke:var(--platform);stroke-dasharray:3 4;stroke-width:1.2}
+svg.diagram .flow{stroke:currentColor;stroke-width:1.3;fill:none}
+svg.diagram .sub{stroke:currentColor;stroke-width:1.3;fill:none;stroke-dasharray:6 4}
+svg.diagram text{fill:currentColor}
+svg.diagram .label{font-size:11px;fill:var(--ink-2)}
+svg.diagram .mono{font-size:11px}
+svg.diagram .title{font-weight:600;font-size:12.5px}
+svg.diagram .muted{fill:var(--ink-3);font-size:11px}
+svg.diagram .accent{fill:var(--hop);font-weight:600}
+svg.diagram .bad{fill:var(--refuse);font-weight:600}
+svg.diagram .good{fill:var(--platform);font-weight:600}
+figcaption{font-size:0.9rem;color:var(--ink-2);max-width:80ch}
+table{border-collapse:collapse;width:100%;font-size:0.92rem;background:var(--surface);border:1px solid var(--line)}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--surface-2)}
+tr:last-child td{border-bottom:none}
+.tscroll{overflow-x:auto}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:16px 18px;display:grid;gap:8px;align-content:start}
+.panel h3{margin-bottom:2px}
+.panel ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:0.93rem}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:0.74rem;padding:2px 7px;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);white-space:nowrap}
+.pill.p{border-color:var(--platform);color:var(--platform)}
+.pill.h{border-color:var(--hop);color:var(--hop)}
+.pill.r{border-color:var(--refuse);color:var(--refuse)}
+.steps{display:grid;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.step{padding:6px 0 18px 22px;position:relative;display:grid;gap:4px}
+.step::before{content:attr(data-n);position:absolute;left:-15px;top:6px;width:26px;height:26px;border-radius:50%;background:var(--ground);border:2px solid var(--platform);color:var(--platform);font-family:"IBM Plex Mono",monospace;font-size:0.75rem;display:grid;place-items:center;font-weight:600}
+.step h3{font-size:1.05rem}
+.step p{font-size:0.93rem;color:var(--ink-2)}
+.step .exit{font-size:0.86rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);padding:6px 10px;display:inline-block;max-width:78ch}
+dl.gloss{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:0;font-size:0.92rem}
+dl.gloss dt{font-family:"IBM Plex Mono",monospace;font-size:0.84rem;color:var(--platform);font-weight:500}
+dl.gloss dd{margin:0;color:var(--ink-2);max-width:80ch}
+footer{padding-block:28px 0;font-size:0.85rem;color:var(--ink-3);border-top:1px solid var(--line)}
+@media (max-width:640px){ dl.gloss{grid-template-columns:1fr} dl.gloss dd{margin-bottom:8px} }
+@media (prefers-reduced-motion: no-preference){ a{transition:color .15s} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+  <a href="#shape">Shape</a><a href="#hop">One hop</a><a href="#catalog">Catalog</a><a href="#data">Data</a><a href="#pii">PII</a><a href="#decisions">Decisions</a><a href="#testing">Testing</a><a href="#roadmap">Roadmap</a><a href="#evidence">Evidence</a><a href="#glossary">Glossary</a>
+</nav>
+
+<header class="hero">
+  <div class="eyebrow">Reference · EventBridge-first · domain-owned · catalog-driven · eu-west-1</div>
+  <h1>One catalog, one hop, one bucket pair per domain</h1>
+  <p class="lede">Each domain account owns its EventBridge Classic bus, its services and its REST API. The platform account owns one central <b>Custom Event Bus</b>, the archive into bronze and silver, API auth and the nightly checks. EventCatalog is the source of truth for events <em>and</em> APIs, and a generator writes every account's infrastructure from it. PII travels classified: pseudonymous ids in clear, direct identifiers encrypted per subject, special categories never.</p>
+  <div class="facts" aria-label="Key facts">
+    <div><b>1 bus-to-bus hop</b><span>domain bus → central; everything after central is a subscriber</span></div>
+    <div><b>0 hand-written rules</b><span>rules, subscribers, buckets, routes, clients, alarms all generated</span></div>
+    <div><b>30 days</b><span>retention on central; replay is a point-in-time subscriber</span></div>
+    <div><b>T−2h</b><span>compactor to Parquet silver; DuckDB over S3, no warehouse</span></div>
+    <div><b>Erasure = key deletion</b><span>direct PII is ciphertext in every copy; crypto-shredding</span></div>
+    <div><b>ODCS per dataset</b><span>a generated data contract, tested nightly, before anything is consumed</span></div>
+  </div>
+</header>
+
+<section id="shape">
+  <div class="intro">
+    <h2>The shape</h2>
+    <p>Two domains are shown; every domain account has the same shape. Solid arrows carry events, the amber arrow is the only bus-to-bus hop EventBridge allows, dashed arrows are subscribers delivering into a queue the consumer owns, and the dotted teal arrows are the generator writing infrastructure into each account.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="diagram" viewBox="0 0 1180 600" role="img" aria-label="End state: the catalog generates infrastructure into an orders account, a platform account and a payments account. Services publish to their domain bus, one forward rule carries public events to the central Custom Event Bus, subscribers deliver into consumer-owned queues, and Firehose archives into per-domain bronze and silver read by DuckDB.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ar-hop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--hop)"/></marker>
+        <marker id="ar-gen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--platform)"/></marker>
+      </defs>
+      <!-- catalog -->
+      <rect x="20" y="16" width="1140" height="92" class="region"/>
+      <text x="32" y="36" class="title">EventCatalog repo · source of truth</text>
+      <rect x="32" y="48" width="470" height="44" class="box"/>
+      <text x="44" y="67" class="mono">domains · services · events · commands/queries</text>
+      <text x="44" y="83" class="mono">schemas (x-pii on every field) · channels · OpenAPI</text>
+      <line x1="502" y1="70" x2="548" y2="70" class="flow" marker-end="url(#ar)"/>
+      <text x="508" y="62" class="muted">catalog-gen</text>
+      <rect x="550" y="48" width="598" height="44" class="box platform"/>
+      <text x="562" y="67" class="mono">rules · subscribers · validation bundles · routing map · ODCS · channel pages</text>
+      <text x="562" y="83" class="mono">REST API bodies · clients · mocks · alarms · roles · bucket defs · deploy order</text>
+      <!-- generator arrows -->
+      <line x1="190" y1="108" x2="190" y2="140" class="gen" marker-end="url(#ar-gen)"/>
+      <line x1="590" y1="108" x2="590" y2="140" class="gen" marker-end="url(#ar-gen)"/>
+      <line x1="990" y1="108" x2="990" y2="140" class="gen" marker-end="url(#ar-gen)"/>
+      <text x="620" y="130" class="muted">generates every account's IaC; a catalog PR is the only way anything below changes</text>
+
+      <!-- orders account -->
+      <rect x="20" y="142" width="350" height="440" class="region"/>
+      <text x="32" y="162" class="title">Orders account</text>
+      <rect x="40" y="180" width="150" height="46" class="box"/>
+      <text x="50" y="199" class="title">order-service</text>
+      <text x="50" y="215" class="label">outbox → relay module</text>
+      <rect x="210" y="180" width="140" height="46" class="box"/>
+      <text x="220" y="199" class="title">REST API</text>
+      <text x="220" y="215" class="label">from OpenAPI · JWT/IAM</text>
+      <line x1="115" y1="226" x2="115" y2="262" class="flow" marker-end="url(#ar)"/>
+      <text x="122" y="248" class="label">publishes</text>
+      <rect x="40" y="264" width="310" height="44" class="bus"/>
+      <text x="50" y="283" class="title">orders-bus · EventBridge Classic</text>
+      <text x="50" y="299" class="label">internal + public events · LocalStack emulates it</text>
+      <line x1="90" y1="308" x2="90" y2="344" class="flow" marker-end="url(#ar)"/>
+      <rect x="40" y="346" width="150" height="46" class="box"/>
+      <text x="50" y="365" class="title">internal consumer rules</text>
+      <text x="50" y="381" class="label">own bus only · DLQ each</text>
+      <line x1="300" y1="308" x2="300" y2="344" class="flow" marker-end="url(#ar)"/>
+      <rect x="210" y="346" width="140" height="46" class="box"/>
+      <text x="220" y="365" class="title">public-forward rule</text>
+      <text x="220" y="381" class="label">source prefix orders.</text>
+      <rect x="40" y="440" width="150" height="46" class="box"/>
+      <text x="50" y="459" class="title">order-service-inbox</text>
+      <text x="50" y="475" class="label">consumer-owned queue</text>
+      <rect x="210" y="440" width="140" height="46" class="box"/>
+      <text x="220" y="459" class="title">subscriber</text>
+      <text x="220" y="475" class="label">per receives[] · own role</text>
+      <line x1="210" y1="463" x2="192" y2="463" class="flow" marker-end="url(#ar)"/>
+      <line x1="115" y1="440" x2="115" y2="530" class="flow"/>
+      <polyline points="115,530 30,530 30,203 38,203" class="flow" marker-end="url(#ar)"/>
+      <text x="36" y="524" class="label">consumes</text>
+      <rect x="40" y="530" width="310" height="40" class="box"/>
+      <text x="50" y="548" class="label">internal archive · 30 d · own account · direct PII may be in clear here only</text>
+
+      <!-- payments account -->
+      <rect x="810" y="142" width="350" height="440" class="region"/>
+      <text x="822" y="162" class="title">Payments account</text>
+      <rect x="990" y="180" width="150" height="46" class="box"/>
+      <text x="1000" y="199" class="title">payment-service</text>
+      <text x="1000" y="215" class="label">+ saga module · PSP webhook</text>
+      <rect x="830" y="180" width="140" height="46" class="box"/>
+      <text x="840" y="199" class="title">generated client</text>
+      <text x="840" y="215" class="label">for the orders API, pinned</text>
+      <line x1="1065" y1="226" x2="1065" y2="262" class="flow" marker-end="url(#ar)"/>
+      <rect x="830" y="264" width="310" height="44" class="bus"/>
+      <text x="840" y="283" class="title">payments-bus · EventBridge Classic</text>
+      <text x="840" y="299" class="label">internal + public events</text>
+      <line x1="900" y1="308" x2="900" y2="344" class="flow" marker-end="url(#ar)"/>
+      <rect x="830" y="346" width="140" height="46" class="box"/>
+      <text x="840" y="365" class="title">public-forward rule</text>
+      <text x="840" y="381" class="label">source prefix payments.</text>
+      <rect x="990" y="346" width="150" height="46" class="box"/>
+      <text x="1000" y="365" class="title">subscriber</text>
+      <text x="1000" y="381" class="label">filter · retry 185/24h · DLQ</text>
+      <line x1="1065" y1="392" x2="1065" y2="438" class="flow" marker-end="url(#ar)"/>
+      <rect x="990" y="440" width="150" height="46" class="box"/>
+      <text x="1000" y="459" class="title">payment-service-inbox</text>
+      <text x="1000" y="475" class="label">consumer-owned queue</text>
+      <polyline points="1140,463 1150,463 1150,203 1142,203" class="flow" marker-end="url(#ar)"/>
+      <!-- sync hop -->
+      <polyline points="830,203 360,203" class="sub" marker-end="url(#ar)"/>
+      <text x="420" y="196" class="label">GET /v1/orders/{id} · the one synchronous hop between domains · timeouts, retries, circuit breaker</text>
+
+      <!-- platform account -->
+      <rect x="390" y="230" width="400" height="352" class="region"/>
+      <text x="402" y="250" class="title">Platform account</text>
+      <rect x="410" y="264" width="360" height="56" class="box platform"/>
+      <text x="420" y="284" class="title">central · EventBridge Custom Event Bus</text>
+      <text x="420" y="300" class="label">public events only · retention 30 d · shared by RAM · FIFO per aggregateId</text>
+      <text x="420" y="313" class="label">dedup on eventId · subscribers created by each consuming domain</text>
+      <!-- the hop -->
+      <polyline points="350,369 380,369 380,292 408,292" class="hop" marker-end="url(#ar-hop)"/>
+      <text x="356" y="330" class="accent">hop 1</text>
+      <polyline points="830,369 800,369 800,292 772,292" class="hop" marker-end="url(#ar-hop)"/>
+      <text x="776" y="330" class="accent">hop 1</text>
+      <!-- subscribers from central -->
+      <polyline points="590,320 590,340 390,340 390,500 190,500 190,486" class="sub" marker-end="url(#ar)"/>
+      <polyline points="590,340 790,340 790,500 1065,500 1065,486" class="sub" marker-end="url(#ar)"/>
+      <text x="596" y="336" class="label">DATA filter = the catalog pattern · delivered to the consumer's own target · never to a domain bus</text>
+      <!-- archive chain -->
+      <line x1="470" y1="320" x2="470" y2="356" class="flow" marker-end="url(#ar)"/>
+      <rect x="410" y="358" width="170" height="46" class="box"/>
+      <text x="420" y="377" class="title">Firehose subscriber</text>
+      <text x="420" y="393" class="label">per domain · validates vs bundle</text>
+      <line x1="580" y1="381" x2="598" y2="381" class="flow" marker-end="url(#ar)"/>
+      <rect x="600" y="358" width="170" height="46" class="bus"/>
+      <text x="610" y="377" class="title">orders-events-bronze</text>
+      <text x="610" y="393" class="label">NDJSON · CMK · Object Lock</text>
+      <line x1="470" y1="404" x2="470" y2="440" class="flow refuse" marker-end="url(#ar)"/>
+      <rect x="410" y="442" width="170" height="46" class="box"/>
+      <text x="420" y="461" class="title bad">processing-failed/</text>
+      <text x="420" y="477" class="label">reason=schema · pii-in-clear · alarm</text>
+      <line x1="685" y1="404" x2="685" y2="440" class="flow" marker-end="url(#ar)"/>
+      <rect x="600" y="442" width="170" height="46" class="box"/>
+      <text x="610" y="461" class="title">compactor · T−2h</text>
+      <text x="610" y="477" class="label">dedupe · daily re-compaction</text>
+      <line x1="685" y1="488" x2="685" y2="524" class="flow" marker-end="url(#ar)"/>
+      <rect x="600" y="526" width="170" height="46" class="bus"/>
+      <text x="610" y="545" class="title">orders-events-silver</text>
+      <text x="610" y="561" class="label">Parquet · DuckDB views · reader roles</text>
+      <rect x="410" y="526" width="170" height="46" class="box"/>
+      <text x="420" y="545" class="title">nightly checks</text>
+      <text x="420" y="561" class="label">reconciliation · drift · ODCS tests</text>
+    </svg>
+    </div>
+    <figcaption>Everything inside the three accounts is generated from the catalog. A public event leaves its domain exactly once, into central; each consuming domain subscribes on central into a queue it owns. Internal events never leave the domain bus. The archive validates every public event against the catalog schema before it reaches bronze.</figcaption>
+  </figure>
+</section>
+
+<section id="hop">
+  <div class="intro">
+    <h2>Why there is no fan-out</h2>
+    <p>The first design (ADR-001) forwarded public events from central back onto every other domain's bus. EventBridge Classic delivers one bus-to-bus hop per event: in a real account the second hop is refused with <code>THIRD_ACCOUNT_HOP_DETECTED</code> and the event lands in the fan-out rule's DLQ. LocalStack delivers the chain anyway, which is why that mechanism is sandbox-only. ADR-021 replaces the second hop with a subscriber on a Custom Event Bus.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="diagram" viewBox="0 0 1100 250" role="img" aria-label="Comparison: under ADR-001 the second bus-to-bus hop from central to payments-bus is refused by AWS; under ADR-021 a subscriber on the Custom central bus delivers straight to the payment service's queue in one hop.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ar2-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--refuse)"/></marker>
+        <marker id="ar2-hop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--hop)"/></marker>
+      </defs>
+      <text x="20" y="28" class="title">ADR-001 · fan-out-all (refused on AWS, Spike B)</text>
+      <rect x="20" y="40" width="190" height="44" class="bus"/><text x="30" y="59" class="title">orders-bus</text><text x="30" y="75" class="label">Classic · orders account</text>
+      <line x1="210" y1="62" x2="288" y2="62" class="hop" marker-end="url(#ar2-hop)"/><text x="222" y="54" class="accent">hop 1 ✓</text>
+      <rect x="290" y="40" width="190" height="44" class="bus"/><text x="300" y="59" class="title">central</text><text x="300" y="75" class="label">Classic · platform account</text>
+      <line x1="480" y1="62" x2="558" y2="62" class="refuse" marker-end="url(#ar2-bad)"/><text x="488" y="54" class="bad">hop 2 ✗</text>
+      <rect x="560" y="40" width="190" height="44" class="bus" opacity="0.5"/><text x="570" y="59" class="title">payments-bus</text><text x="570" y="75" class="label">consumer rule never fires</text>
+      <rect x="770" y="40" width="310" height="44" class="box"/>
+      <text x="780" y="57" class="bad">THIRD_ACCOUNT_HOP_DETECTED</text>
+      <text x="780" y="73" class="label">"an event can be sent to an event bus target only once" → fan-out DLQ</text>
+
+      <text x="20" y="148" class="title">ADR-021 · Custom central bus + subscriber (Spike D, accepted)</text>
+      <rect x="20" y="160" width="190" height="44" class="bus"/><text x="30" y="179" class="title">orders-bus</text><text x="30" y="195" class="label">Classic · unchanged</text>
+      <line x1="210" y1="182" x2="288" y2="182" class="hop" marker-end="url(#ar2-hop)"/><text x="222" y="174" class="accent">hop 1 ✓</text>
+      <rect x="290" y="160" width="190" height="44" class="box platform"/><text x="300" y="179" class="title">central</text><text x="300" y="195" class="label">Custom Event Bus · retention 30 d</text>
+      <line x1="480" y1="182" x2="558" y2="182" class="sub" marker-end="url(#ar2)"/><text x="488" y="174" class="label">subscriber</text>
+      <rect x="560" y="160" width="190" height="44" class="box"/><text x="570" y="179" class="title">payments' subscriber</text><text x="570" y="195" class="label">DATA filter · retry · DLQ · own role</text>
+      <line x1="750" y1="182" x2="828" y2="182" class="flow" marker-end="url(#ar2)"/><text x="762" y="174" class="label">delivers</text>
+      <rect x="830" y="160" width="250" height="44" class="box"/><text x="840" y="179" class="title good">payment-service-inbox ✓</text><text x="840" y="195" class="label">the consumer's own queue · no second bus hop</text>
+      <text x="20" y="236" class="muted">Hard rule: a subscriber never targets a Classic bus that forwards into the same central bus — one direction is refused with LOOP_DETECTED, the other is dropped silently (Spike D).</text>
+    </svg>
+    </div>
+    <figcaption>The only thing that changes between the two rows is what sits after central: a bus (refused) or a subscriber delivering into a consumer-owned target (allowed). Domain buses, the forward rule and the catalog pattern are identical in both.</figcaption>
+  </figure>
+  <div class="cols">
+    <div class="panel"><h3>What the Custom Event Bus gives natively</h3><ul>
+      <li>Consumer-owned subscriptions: filter, one target, delivery role, retry policy, DLQ, created in the consuming account</li>
+      <li>Retention and point-in-time replay by subscriber start position</li>
+      <li>FIFO per <code>EventGroupId</code> (the relay sets it to <code>aggregateId</code>)</li>
+      <li>Publish-time deduplication on <code>DeduplicationId = eventId</code> inside a 5-minute window</li>
+      <li>Loop detection, best-effort, with <code>LOOP_DETECTED</code> in the DLQ</li>
+    </ul></div>
+    <div class="panel"><h3>What it costs</h3><ul>
+      <li>Billed per GB published, delivered and retained, not per event</li>
+      <li>No LocalStack emulation: subscriber behaviour is sandbox-only; <code>platform-local</code> renders the same subscriber file as a Classic rule on a stub central</li>
+      <li>No London endpoint: the whole platform runs in eu-west-1</li>
+      <li>One subscriber change at a time per bus; six create-only properties, so a target change is add-then-remove</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="catalog">
+  <div class="intro">
+    <h2>The catalog is the only control plane</h2>
+    <p>Every rule, subscriber, bucket, route, client, alarm, role and data contract is a deterministic function of the catalog. Drift is caught twice: once between the catalog and its generated output, once between the generated output and what is applied. Spike C proved that a catalog edit, regenerated, is the only thing that changes behaviour on the buses, and that each edit's <code>terraform plan</code> is exactly the resources the edit implies.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="diagram" viewBox="0 0 1000 170" role="img" aria-label="Pipeline from a catalog pull request through catalog-gen build to generated files, then terraform plan and apply to buses, subscribers and the archive, with two drift gates: catalog-gen check and an empty terraform plan, plus a nightly scan that every deployed rule equals its generated file.">
+      <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+      <rect x="20" y="30" width="170" height="50" class="box"/><text x="30" y="50" class="title">catalog PR</text><text x="30" y="67" class="label">x-visibility · receives[] · schema</text>
+      <line x1="190" y1="55" x2="258" y2="55" class="flow" marker-end="url(#ar3)"/><text x="196" y="47" class="muted">build</text>
+      <rect x="260" y="30" width="170" height="50" class="box platform"/><text x="270" y="50" class="title">generated/</text><text x="270" y="67" class="label">rules · subscribers · bundles · map</text>
+      <line x1="430" y1="55" x2="498" y2="55" class="flow" marker-end="url(#ar3)"/><text x="436" y="47" class="muted">plan · apply</text>
+      <rect x="500" y="30" width="200" height="50" class="box"/><text x="510" y="50" class="title">terraform</text><text x="510" y="67" class="label">fileset() over the generated files</text>
+      <line x1="700" y1="55" x2="768" y2="55" class="flow" marker-end="url(#ar3)"/>
+      <rect x="770" y="30" width="210" height="50" class="bus"/><text x="780" y="50" class="title">buses · subscribers · archive</text><text x="780" y="67" class="label">eventsv2 on AWS · Classic stub locally</text>
+      <polyline points="225,80 225,110 240,110" class="flow"/>
+      <rect x="240" y="96" width="190" height="28" class="box"/><text x="250" y="114" class="mono">gate 1 · catalog-gen check</text>
+      <polyline points="465,80 465,110 480,110" class="flow"/>
+      <rect x="480" y="96" width="220" height="28" class="box"/><text x="490" y="114" class="mono">gate 2 · plan -detailed-exitcode = 0</text>
+      <polyline points="875,80 875,110 760,110" class="flow"/>
+      <rect x="560" y="132" width="420" height="28" class="box"/><text x="570" y="150" class="mono">nightly + L1: every deployed rule equals its generated file; no hand-made rule survives</text>
+      <polyline points="875,110 875,132" class="flow"/>
+    </svg>
+    </div>
+    <figcaption>Gate 1 fails a PR whose catalog is ahead of its generated output. Gate 2 fails a test run whose applied environment is behind the generated output. The scan closes the loop from the other side.</figcaption>
+  </figure>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>Catalog entry</th><th>What the generator emits</th><th>Where it lands</th></tr></thead>
+    <tbody>
+      <tr><td><code>events/</code> + <code>x-visibility: public</code></td><td>public-forward rule per domain (split at 4 KB); validation bundle with <code>direct</code> fields typed as the ciphertext envelope; routing map; Parquet schema; ODCS contract; logical channel pages</td><td>domain bus rule · Firehose transform · bronze/silver · catalog</td></tr>
+      <tr><td><code>services/*.receives[]</code> cross-domain</td><td>one subscriber file: filter = the Classic pattern, retry 185 / 24 h, DLQ, target <code>{service}-inbox</code>; rendered as an eventsv2 subscriber on AWS and a Classic rule on the stub central locally</td><td>consuming account</td></tr>
+      <tr><td><code>services/*.receives[]</code> same-domain</td><td>a consumer rule on the domain's own bus with its DLQ and alarm</td><td>domain account</td></tr>
+      <tr><td><code>x-pii</code> on every schema field</td><td>encryption config, decrypt grants for listed <code>decryptors</code>, ciphertext checks, silver column policy, log scrubbing, retention per class, ROPA export</td><td>subject-key service · Firehose · silver · logs</td></tr>
+      <tr><td><code>services/*/openapi.yaml</code></td><td>command and query pages; REST API body with request validators and authorizer; WAF for <code>x-external</code>; typed clients; Prism mocks; Schemathesis job; Sunset headers; DNS record</td><td>domain account · consumer repos</td></tr>
+      <tr><td><code>domains/</code></td><td>central bus policy; bronze and silver bucket definitions with CMKs, Object Lock, lifecycle; reader roles; Firehose streams; compactor schedules; alarms and dashboards; deploy-order manifest</td><td>platform account</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="data">
+  <div class="intro">
+    <h2>Archive, validate, compact</h2>
+    <p>Every public event that reaches central is validated against the catalog schema before it is stored. A conformant event lands raw in its domain's bronze bucket; anything else is quarantined with a reason and an alarm. The compactor turns bronze into Parquet silver two hours behind bus time and re-compacts yesterday daily, so late deliveries and retries up to 24 hours still land in the right partition.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="diagram" viewBox="0 0 1000 220" role="img" aria-label="An event on central passes through validation against the generated bundle. A conformant event is written under raw in the domain bronze bucket chosen by the routing map; a schema violation, a direct field in clear, or an unknown event is written under processing-failed with its reason, and both prefixes are readable by DuckDB.">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ar4-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--refuse)"/></marker>
+        <marker id="ar4-good" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--platform)"/></marker>
+      </defs>
+      <rect x="20" y="80" width="150" height="50" class="box platform"/><text x="30" y="100" class="title">event on central</text><text x="30" y="117" class="label">source · detail-type · detail</text>
+      <line x1="170" y1="105" x2="238" y2="105" class="flow" marker-end="url(#ar4)"/>
+      <rect x="240" y="66" width="230" height="78" class="box"/>
+      <text x="250" y="86" class="title">validate.classify(event, bundles)</text>
+      <text x="250" y="103" class="label">bundle = generated validation/&lt;domain&gt;.json</text>
+      <text x="250" y="119" class="label">envelope + payload, closed schema;</text>
+      <text x="250" y="135" class="label">direct fields must be {enc, kid, ct}</text>
+      <polyline points="470,90 540,90 540,46 598,46" class="flow" stroke="var(--platform)" marker-end="url(#ar4-good)"/>
+      <text x="548" y="40" class="good">None</text>
+      <rect x="600" y="24" width="380" height="44" class="bus"/>
+      <text x="610" y="42" class="mono">s3://&lt;domain&gt;-events-bronze/raw/source=…/detail_type=…/</text>
+      <text x="610" y="59" class="label">bucket from the routing map · then compactor → silver</text>
+      <polyline points="470,120 540,120 540,152 598,152" class="flow" stroke="var(--refuse)" marker-end="url(#ar4-bad)"/>
+      <text x="548" y="146" class="bad">(reason, message)</text>
+      <rect x="600" y="130" width="380" height="44" class="box"/>
+      <text x="610" y="148" class="mono">…/processing-failed/reason=&lt;reason&gt;/source=…/detail_type=…/</text>
+      <text x="610" y="165" class="label">schema · pii-in-clear · unknown-event · alarm · unknown source → platform bucket</text>
+      <rect x="600" y="186" width="380" height="26" class="box"/>
+      <text x="610" y="203" class="mono">DuckDB: SELECT status, reason, source, detail_type, count(*) FROM bronze</text>
+      <line x1="790" y1="174" x2="790" y2="184" class="flow"/>
+      <text x="20" y="196" class="muted">The same validate.py runs inside the Firehose transform on AWS and inside the Lambda shim on LocalStack.</text>
+    </svg>
+    </div>
+    <figcaption>Validation is a schema check, not PII-aware code: the generator types every <code>direct</code> field of a public event as the ciphertext envelope, so clear text fails by schema alone. Both prefixes are Hive-partitioned and read by the same DuckDB views.</figcaption>
+  </figure>
+  <div class="cols">
+    <div class="panel"><h3>Bronze</h3><ul>
+      <li>NDJSON, gzip, one EventBridge envelope per line exactly as delivered</li>
+      <li><code>{source}/{detail-type}/{yyyy}/{mm}/{dd}/{hh}/</code> from dynamic partitioning</li>
+      <li>SSE-KMS with the domain CMK, Object Lock, versioning, cross-region replication in prod</li>
+      <li>Audit trail and analytics replay source; never mutated</li>
+    </ul></div>
+    <div class="panel"><h3>Silver</h3><ul>
+      <li>Parquet, zstd, one file per (type, hour), overwritten atomically on re-compaction</li>
+      <li>Fixed envelope columns, <code>detail</code> as JSON, then typed <code>d_&lt;field&gt;</code> for <code>none</code> and <code>indirect</code> fields only</li>
+      <li>Money becomes <code>d_&lt;field&gt;</code> decimal128(18,4) plus <code>d_&lt;field&gt;_currency</code></li>
+      <li>Dedupe in the compactor and again in the views: duplicates cross hour boundaries</li>
+    </ul></div>
+    <div class="panel"><h3>Contract</h3><ul>
+      <li>ODCS v3 per public event version, generated from the schema, <code>x-pii</code> and ownership plus a small overlay</li>
+      <li>Overlay may replace description, SLAs, team, terms; append quality rules; never touch generated keys</li>
+      <li><code>datacontract test</code> nightly against real silver; a failure is an alarm and a catalog badge</li>
+      <li>No contract, no reader grant: nothing is consumed outside its domain without one</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="pii">
+  <div class="intro">
+    <h2>PII is classified, not banned</h2>
+    <p>Every schema field carries <code>x-pii</code>. Pseudonymous identifiers travel in clear because routing and correlation need them. Direct identifiers are encrypted by the producer with a per-subject data key, so every copy EventBridge makes holds ciphertext, and erasure is deleting the key. Special categories never enter any event.</p>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg class="diagram" viewBox="0 0 1000 230" role="img" aria-label="A producer fetches a per-subject data key from the subject-key service, encrypts direct fields, and publishes. The ciphertext is identical in the bus, bronze, DLQs, logs and replays. A consumer listed as a decryptor fetches the key; erasure deletes the key, which makes every copy unreadable and emits a SubjectErased event.">
+      <defs>
+        <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ar5-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--refuse)"/></marker>
+      </defs>
+      <rect x="20" y="30" width="160" height="50" class="box"/><text x="30" y="50" class="title">producer</text><text x="30" y="67" class="label">shared crypto library</text>
+      <rect x="260" y="30" width="220" height="50" class="box platform"/><text x="270" y="50" class="title">subject-key service</text><text x="270" y="67" class="label">data key per subject, wrapped by the domain CMK</text>
+      <line x1="180" y1="48" x2="258" y2="48" class="flow" marker-end="url(#ar5)"/><text x="186" y="42" class="label">get-or-create(subjectId)</text>
+      <line x1="258" y1="64" x2="182" y2="64" class="flow" marker-end="url(#ar5)"/><text x="186" y="78" class="label">data key (cached, short TTL)</text>
+      <line x1="100" y1="80" x2="100" y2="128" class="flow" marker-end="url(#ar5)"/><text x="108" y="108" class="label">encrypt direct fields → {enc, kid, ct}</text>
+      <rect x="20" y="130" width="460" height="50" class="bus"/>
+      <text x="30" y="150" class="title">the event, everywhere it is copied</text>
+      <text x="30" y="167" class="label">domain bus · central · subscriber delivery · DLQ · bronze · logs · replay · a laptop — all ciphertext</text>
+      <rect x="560" y="30" width="200" height="50" class="box"/><text x="570" y="50" class="title">granted consumer</text><text x="570" y="67" class="label">listed in decryptors[] · IAM grant</text>
+      <line x1="560" y1="55" x2="482" y2="55" class="flow" marker-end="url(#ar5)"/><text x="490" y="48" class="label">get(subjectId)</text>
+      <line x1="480" y1="155" x2="558" y2="155" class="flow" marker-end="url(#ar5)"/>
+      <rect x="560" y="130" width="200" height="50" class="box"/><text x="570" y="150" class="title">ungranted consumer</text><text x="570" y="167" class="label">sees ciphertext, nothing else</text>
+      <rect x="800" y="30" width="180" height="50" class="box"/><text x="810" y="50" class="title bad">erasure request</text><text x="810" y="67" class="label">approval step · grace period</text>
+      <polyline points="890,80 890,105 370,105 370,82" class="refuse" marker-end="url(#ar5-bad)"/>
+      <text x="400" y="100" class="bad">delete(subjectId) — every copy decodes as "erased", Object-Locked bronze included</text>
+      <rect x="800" y="130" width="180" height="50" class="box"/><text x="810" y="150" class="title">platform.SubjectErased.v1</text><text x="810" y="167" class="label">consumers run their own erasure</text>
+      <line x1="890" y1="80" x2="890" y2="128" class="flow" marker-end="url(#ar5)"/>
+      <text x="20" y="212" class="muted">Classes: none · indirect (clear) · direct (ciphertext in public events; clear inside the account for 30 days at most) · special (never in an event; reference by id).</text>
+    </svg>
+    </div>
+    <figcaption>Encrypting at the producer is the only control that follows the data into every copy. Crypto-shredding reconciles an immutable, Object-Locked audit trail with erasure on request.</figcaption>
+  </figure>
+</section>
+
+<section id="decisions">
+  <div class="intro">
+    <h2>Decisions, and the only triggers that reopen them</h2>
+    <p>Each row is an ADR with its triggers in frontmatter. A proposal that contradicts a default must cite the trigger it claims has fired. Nothing else is built until a trigger says so: no Athena, Glue, Iceberg, Kinesis, Temporal, central gateway, CloudFront, Schema Registry or data platform account.</p>
+  </div>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>ADR</th><th>Concern</th><th>Default</th><th>Revisit only when</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p">021</span></td><td>Transport &amp; routing</td><td>Classic domain buses; Custom central bus shared by RAM; no fan-out; a subscriber per <code>receives[]</code> in the consumer's account</td><td>London gets an eventsv2 endpoint and residency needs it · a domain needs retention or FIFO for internal events · proven stream volume → Kinesis for that stream</td></tr>
+      <tr><td><span class="pill">002</span></td><td>Sync vs async</td><td>Facts are events; a question needing an answer now is one synchronous hop through a generated client; CI fails deeper chains</td><td>A query fans out across domains → a read model (CQRS) · multi-step command → a saga</td></tr>
+      <tr><td><span class="pill">003</span></td><td>Orchestration</td><td>Choreography; a saga lives inside the owning domain on the platform saga module</td><td>Several sagas plus portability → Temporal per domain, never cross-domain</td></tr>
+      <tr><td><span class="pill">004 · 005</span></td><td>APIs</td><td>Design-first OpenAPI 3.1 as commands and queries; regional REST API per domain with gateway validation; WAF on anything external; JWT for users, IAM for services</td><td>Divergent consumers → Pact · single hostname or caching → CloudFront · private-only → VPC link</td></tr>
+      <tr><td><span class="pill p">022</span></td><td>Event shape</td><td>Forwarded unchanged; <code>replay</code> set by the consumer's subscriber; no input transformer on bus targets (AWS rejects them)</td><td>Different vocabulary → a distinct public event with <code>derivedFrom</code> · different shape → a JSONata transformer on the consumer's own subscriber</td></tr>
+      <tr><td><span class="pill">007</span></td><td>PII in events</td><td>Classified per field; <code>direct</code> encrypted per subject; erasure is key deletion; <code>special</code> never</td><td>Analytics needs a direct field → reversible tokenisation and a DPIA entry</td></tr>
+      <tr><td><span class="pill p">023 · 024</span></td><td>Replay &amp; archive</td><td>30-day retention on central; replay is a point-in-time subscriber; Firehose per domain validates into bronze; a Lambda shim locally</td><td>Older than the window → an S3-to-bus replayer · sub-minute analytics → a second Firehose to Parquet</td></tr>
+      <tr><td><span class="pill">010 · 011 · 013</span></td><td>Data layer</td><td>Bronze and silver per domain in the platform account, CMK and Object Lock; compactor at T−2h; DuckDB everywhere</td><td>Row-level updates or time travel → PyIceberg · BI users → Athena on the same files</td></tr>
+      <tr><td><span class="pill">012</span></td><td>Data contracts</td><td>ODCS v3 generated per silver table and per bronze; tested nightly; no consumption without one</td><td>A dataset not derived from events → hand-authored ODCS, same tests</td></tr>
+      <tr><td><span class="pill">014 · 020</span></td><td>Environments &amp; DR</td><td>Nonprod and prod account tiers; catalog released by tag, each environment pins one; single region eu-west-1 with replicated bronze</td><td>A regulator needs an integrated environment · RTO shorter than a region incident → global endpoints</td></tr>
+      <tr><td><span class="pill">017</span></td><td>Source of truth</td><td>One EventCatalog repo; generator semver-pinned per account; canary apply order; CODEOWNERS per domain; no Schema Registry</td><td>The monorepo becomes the bottleneck → federated catalogs, same model</td></tr>
+      <tr><td><span class="pill p">025</span></td><td>Testing</td><td>Contract tests, licensed LocalStack with IAM enforced against a Classic stub central, a real sandbox nightly and per branch; a sandbox-only list that LocalStack never answers</td><td>LocalStack emulates eventsv2 → subscriber tests return to L1</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="testing">
+  <div class="intro">
+    <h2>What LocalStack proves, and what only a real account can</h2>
+    <p>Spike B showed LocalStack returning green for the wrong reason on the mechanisms the design depends on most. The testing layers name those mechanisms explicitly, mark their tests, and exclude them from local runs.</p>
+  </div>
+  <div class="cols">
+    <div class="panel"><h3>L0 · Contract <span class="pill">no infra</span></h3><ul><li>An event built by domain code validates against the catalog schema</li><li>Spectral and <code>oasdiff</code> on OpenAPI; generated clients compile against the pinned spec</li><li>Nothing may depend on a version past its sunset</li></ul></div>
+    <div class="panel"><h3>L1 · Domain-local <span class="pill">licensed LocalStack · ENFORCE_IAM=1</span></h3><ul><li>Own bus → forward rule → Classic stub central → subscriber-shaped rules into own queues → archive shim → own bronze → compactor → own silver</li><li>Two drift gates and the rule scan before any delivery test</li><li>Prism mocks of upstream APIs; Schemathesis on the domain's own API</li></ul></div>
+    <div class="panel"><h3>L2 · Platform <span class="pill p">real AWS sandbox</span></h3><ul><li>Synthetic events from catalog schemas; an ephemeral stack per branch</li><li><b>Sandbox-only:</b> the Custom Event Bus and RAM sharing, subscriber delivery, FIFO, dedup, replay, DLQ records, IAM and resource policies, hop limits and loop detection, Firehose partitioning and quarantine</li><li>Those tests carry a <code>sandbox</code> marker; a LocalStack divergence is <code>xfail(strict=True)</code> so an emulator fix surfaces</li></ul></div>
+    <div class="panel"><h3>L3 · Smoke <span class="pill">prod</span></h3><ul><li>One <code>SmokeTest.v1</code> event per domain appears in its bronze bucket within the Firehose buffer</li><li>One <code>GET /v1/health</code> per API</li><li>Proves the forward rule, the RAM share, the Firehose subscriber and cross-account delivery on every deploy</li></ul></div>
+  </div>
+  <p class="lede" style="font-size:1rem">Automated tests never see two domains together. Behavioural mismatches surface in UAT, smokes and canaries, not CI. If a test needs another domain's code, the contract is wrong.</p>
+</section>
+
+<section id="roadmap">
+  <div class="intro">
+    <h2>How it gets built</h2>
+    <p>Each step proves one mechanism and has an exit that can be checked. The spikes below ran first and changed the plan: the first transport decision did not survive contact with a real account.</p>
+  </div>
+  <div class="steps">
+    <div class="step" data-n="0"><h3>Day one · Foundations</h3><p>Catalog repo bootstrapped, decisions ratified, Terraform module library and toolchain (Terraform, Task, uv, licensed LocalStack, Node 22).</p><span class="exit">Exit: a new engineer clones two repos, runs <code>task up &amp;&amp; task apply &amp;&amp; task test</code>, calls the mock of an API that isn't built yet, and reads every convention and trade-off in under an hour.</span></div>
+    <div class="step" data-n="1"><h3>Walking skeleton · single account, LocalStack</h3><p>orders-bus and a Classic stub central; the <code>receives[]</code> entry rendered as a rule on the stub; archive with validation into bronze, compactor to silver, DuckDB views; the orders REST API with one command and one query; one direct field encrypted end to end. Starts from Spike C's modules and scenario-snapshot tests.</p><span class="exit">Exit: <code>task test</code> green for events, archive validation, dedupe and API; <code>task query</code> shows the event the API call produced, by correlationId.</span></div>
+    <div class="step" data-n="2"><h3>Catalog drives the IaC</h3><p>Generator emits subscribers, Firehose streams, bucket definitions, reader roles, alarms, API bodies, clients, mocks, ODCS contracts; catalog CI guardrails; a deploy-order manifest.</p><span class="exit">Exit: no hand-written rule, bucket, route, authorizer, client, alarm or role anywhere; <code>git blame</code> on any of them points at the generator.</span></div>
+    <div class="step" data-n="3"><h3>Second domain, the saga, testing in isolation</h3><p>payments with its own bus and bucket pair, the saga module driving authorise → capture → settle, WAF on the webhook; <code>platform-local</code> extracted as a versioned module; the <code>platform_testing</code> package; the erasure drill.</p><span class="exit">Exit: a domain proves its events, API and saga end to end with no other domain and no shared environment.</span></div>
+    <div class="step" data-n="4"><h3>Real accounts · nonprod then prod</h3><p>Platform plus one account per domain in eu-west-1; the Custom central bus shared by RAM; subscribers applied one at a time per bus in manifest order; CMKs, Object Lock, replication; DNS per domain; the replay runbook; smokes and pin promotion by PR.</p><span class="exit">Exit: the things LocalStack couldn't prove are proven continuously by smokes and drills.</span></div>
+    <div class="step" data-n="5"><h3>Reading across domains, reconciliation, guardrails</h3><p>Per-domain reader roles; DuckDB views that union deduped silver; the nightly Lambda for reconciliation, undocumented events, quarantine volume, rule and API drift, partition completeness, ROPA, decryptor review and <code>datacontract test</code>.</p><span class="exit">Exit: a nightly report exists and is clean; adding a domain is a catalog PR plus an account, not a platform-team project.</span></div>
+  </div>
+</section>
+
+<section id="evidence">
+  <div class="intro">
+    <h2>Evidence from the spikes</h2>
+    <p>Four isolated spikes ran before day one. Every claim in their findings names the test or command that proves it.</p>
+  </div>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>Spike</th><th>Question</th><th>Answer</th><th>What changed</th></tr></thead>
+    <tbody>
+      <tr><td><b>A</b> · catalog as source of truth</td><td>Can one EventCatalog repo generate every routing pattern, validation schema, Parquet schema, PII policy and ODCS contract offline, and fail on drift?</td><td><span class="pill p">go-with-changes</span> 38 tests; a one-character edit anywhere fails <code>check</code></td><td>Platform keys are <code>x-</code> prefixed; channels are logical and per event; Node 22; the build must not rewrite its sources; command and query pages are generated, not derived</td></tr>
+      <tr><td><b>B</b> · buses end to end on LocalStack</td><td>Do the EventBridge mechanics behave as the design assumed?</td><td><span class="pill p">go-with-changes</span> locally yes; on AWS the second bus-to-bus hop is refused</td><td>ADR-001 superseded; DLQ records, IAM, replay and Firehose behaviour declared sandbox-only; licensed LocalStack adopted</td></tr>
+      <tr><td><b>D</b> · Custom Event Bus</td><td>Does the relaunched Custom Event Bus give consumer-owned subscriptions, retention, FIFO and dedup natively?</td><td><span class="pill p">go</span> 18 tests in eu-west-1; loop detection real in one direction, silent in the other</td><td>ADR-021 to 025 accepted; platform region eu-west-1; the hard rule that no subscriber targets a Classic bus</td></tr>
+      <tr><td><b>C</b> · the join</td><td>When A's output replaces B's hand-written patterns, is a catalog PR the only thing that changes behaviour on the buses?</td><td><span class="pill p">go-with-changes</span> 62 resources from generated output; each canonical edit's plan is exactly the expected resources, committed as snapshots</td><td>Generator drops fan-out and emits subscriber target references; two drift gates; routing map packaged with the bundle; the docs aligned</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="cols">
+    <div class="panel"><h3>Accepted trade-offs, so nobody rediscovers them</h3><ul>
+      <li>No ordering and no exactly-once anywhere; every consumer handles duplicates and out-of-order; silver reconstructs order via <code>aggregateVersion</code></li>
+      <li>Analytics are batch, two to three hours behind, until a named trigger fires</li>
+      <li>Automated tests never see two domains together</li>
+      <li>One catalog repo is one control plane: coherence in exchange for merge contention and generator blast radius</li>
+      <li>Crypto-shredding is irreversible; key deletion has an approval step and a grace period</li>
+    </ul></div>
+    <div class="panel"><h3>Rules for anyone changing it</h3><ul>
+      <li>Change the catalog or the generator, never an account by hand; the nightly scan flags hand-made rules and routes</li>
+      <li>A proposal that adds a service must point at the decision row that permits it, with evidence the trigger fired</li>
+      <li>One synchronous hop between domains, through a generated client</li>
+      <li>Any dataset consumed outside its domain has an ODCS contract first</li>
+      <li>Read <code>pii.md</code> before touching a payload</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="glossary">
+  <div class="intro"><h2>Glossary</h2></div>
+  <dl class="gloss">
+    <dt>central</dt><dd>The platform's EventBridge Custom Event Bus: public events only, retained 30 days, shared to domain accounts by RAM.</dd>
+    <dt>domain bus</dt><dd>A domain's own EventBridge Classic bus. Every event the domain publishes lands here; one generated rule forwards public events to central.</dd>
+    <dt>subscriber</dt><dd>The Custom Event Bus's routing unit: a filter, one target, a delivery role, a retry policy and a DLQ, created in the consuming account from its <code>receives[]</code>.</dd>
+    <dt>public / internal</dt><dd><code>x-visibility</code> in the catalog. Public events are forwarded to central and archived; internal events never leave the domain account.</dd>
+    <dt>audience</dt><dd><code>x-audience: all</code> or <code>restricted</code>; a subscriber to a restricted event is generated only with producer approval recorded in the catalog.</dd>
+    <dt>bronze / silver</dt><dd>Per-domain S3 buckets in the platform account: bronze is raw NDJSON from Firehose, silver is Parquet from the compactor.</dd>
+    <dt>platform-local</dt><dd>The versioned Terraform module a domain applies in licensed LocalStack: a Classic stub central with subscriber-shaped rules, the archive shim, the compactor and its own buckets.</dd>
+    <dt>saga module</dt><dd>The platform's in-domain stateful-process pattern. Never a cross-domain workflow.</dd>
+    <dt>replay flag</dt><dd><code>replay: true</code> on re-driven events, set by the consumer's subscriber from <code>aws:DeliveryType=REPLAY</code>; side-effecting consumers skip them.</dd>
+    <dt>x-pii</dt><dd>The per-field classification in every schema: <code>none</code>, <code>indirect</code>, <code>direct</code>, <code>special</code>.</dd>
+    <dt>subject-key service</dt><dd>Platform module holding a data key per subject under the owning domain's CMK; erasure deletes it.</dd>
+    <dt>ODCS</dt><dd>Bitol's Open Data Contract Standard v3; one generated contract per dataset the platform serves, tested nightly.</dd>
+  </dl>
+</section>
+
+<footer>Source: <code>docs/architecture/</code> in the platform repo (README, decisions, ADR-001 to 025, conventions, generation-and-ci, data-layer, data-contracts, pii, testing, roadmap, trade-offs) and the four spike findings, as of 5 October 2026.</footer>
+</div>
+
+</body>
+</html>
