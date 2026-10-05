@@ -1,0 +1,37 @@
+version: "3"
+vars:
+  A: "{{.TASKFILE_DIR}}/../A-catalog-source-of-truth"
+  B: "{{.TASKFILE_DIR}}/../B-localstack-buses-end-to-end"
+  PYTEST: uv run --with boto3 --with pytest --with duckdb --with pyyaml --with python-frontmatter --with jsonschema pytest -q tests
+tasks:
+  default:
+    cmds: [task --list]
+  up:
+    desc: Start the licensed LocalStack (ENFORCE_IAM=1) Spike B uses; needs LOCALSTACK_AUTH_TOKEN (see Spike B)
+    cmds: ["task -d {{.B}} up LICENSED=true"]
+  apply:
+    desc: catalog-gen → generated/local → Spike B's Terraform on LocalStack
+    cmds: ["task -d {{.B}} apply"]
+  test:
+    desc: "Spike B's suite behind its drift gates, then the behaviour-through-the-catalog scenarios (re-applies LocalStack several times; ~6 min)"
+    cmds:
+      - "task -d {{.B}} test"
+      - "{{.PYTEST}}"
+  scenarios:
+    desc: Only the behaviour-through-the-catalog tests
+    cmds: ["{{.PYTEST}} {{.CLI_ARGS}}"]
+  snapshots:update:
+    desc: Accept the current plans as the committed snapshots under snapshots/
+    cmds: ["UPDATE_SNAPSHOTS=1 {{.PYTEST}}"]
+  no-spike-markers:
+    desc: "Done-when: no hand-written stand-in marked for replacement by this spike is left under spikes/"
+    cmds:
+      - "! grep -rIn 'SPIKE: replaced in spike [C]' {{.TASKFILE_DIR}}/.. --exclude-dir=node_modules --exclude-dir=.scenarios --exclude=findings.md"
+  all:
+    desc: up → apply → A's full pipeline → test → no-spike-markers
+    cmds:
+      - task: up
+      - task: apply
+      - "task -d {{.A}} all"
+      - task: test
+      - task: no-spike-markers

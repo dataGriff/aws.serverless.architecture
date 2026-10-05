@@ -14,10 +14,8 @@ every cross-domain consumer gets a generated *subscriber* on central that delive
 Internal and own-domain events are consumed by rules on the domain bus.
 
     rules/{domain}-public-forward.json          detail-type list of the domain's public events (split at --pattern-limit)
-    rules/{domain}-fan-out.json                 ADR-001 fan-out pattern, kept for the platform-local Classic stub only
-    rules/{domain}-fan-out.enumerated.json      the enumerated alternative, for size comparison
     rules/{domain}-consumer-{event}.json        consumer rule on the domain's own bus (same-domain events only)
-    subscribers/{domain}-{event}.json           subscriber on central per cross-domain receives[]: filter, retry, DLQ, targets
+    subscribers/{domain}-{event}.json           subscriber on central per cross-domain receives[]: filter, retry, DLQ, target queue
     archive/routing-map.json                    source prefix -> bronze bucket + public detail-types
     validation/{domain}.json                    envelope+payload schema per public event, direct fields as ciphertext envelopes
     parquet/{DetailType}.json                   silver column list per public event
@@ -29,7 +27,7 @@ Internal and own-domain events are consumed by rules on the domain bus.
 
     uv run catalog_gen.py build   --catalog ../catalog --out ../generated/local
     uv run catalog_gen.py check   --catalog ../catalog --out ../generated/local
-    uv run catalog_gen.py explain --catalog ../catalog --out ../generated/local rules/orders-fan-out.json
+    uv run catalog_gen.py explain --catalog ../catalog --out ../generated/local subscribers/payments-order-placed.json
 """
 from __future__ import annotations
 
@@ -406,16 +404,12 @@ def forward_rule_files(cat: Catalog, domain: str) -> list[str]:
 
 def emit_rules(cat: Catalog) -> dict[str, str]:
     out: dict[str, str] = {}
-    domains = sorted(cat.domains)
-    domain_paths = [x.path for x in cat.domains.values()]
-    for d in domains:
+    for d in sorted(cat.domains):
         public = cat.public_events(d)
         parts = _split_detail_types(f"{d}.", [e.detail_type for e in public])
         srcs = [cat.domains[d].path] + [e.path for e in public]
         for rel, part in zip(forward_rule_files(cat, d), parts):
             _emit(out, rel, _j({"source": [{"prefix": f"{d}."}], "detail-type": part}), srcs)
-        _emit(out, f"rules/{d}-fan-out.json", _j({"source": [{"anything-but": {"prefix": f"{d}."}}]}), domain_paths)
-        _emit(out, f"rules/{d}-fan-out.enumerated.json", _j({"source": [{"prefix": f"{o}."} for o in domains if o != d]}), domain_paths)
     for rel, (pattern, sources) in _consumer_rules(cat).items():
         _emit(out, rel, _j(pattern), sources)
     return out
@@ -491,10 +485,18 @@ def emit_subscribers(cat: Catalog) -> dict[str, str]:
             "retryPolicy": SUBSCRIBER_RETRY,
             "deadLetterQueue": f"{s.domain}-{kebab(s.event)}-dlq",
             "maxBatchSize": 1,
-            "targets": s.services,
+            "targets": [target_ref(svc) for svc in s.services],
             "channels": [sub_channel(s.domain, d) for d in s.detail_types],
         }), s.paths)
     return out
+
+
+def target_ref(service: str) -> dict:
+    """The consumer-owned target a subscriber (or a same-domain consumer rule) delivers to: the service's inbox
+    queue in its own account, created by the domain, referenced by name. Spike C found `targets: [service]` was
+    decoration; this gives day-one Terraform a name to resolve. Spike C's own env still creates one queue per
+    subscriber and records this only as a tag (see C-join/findings.md, open questions)."""
+    return {"service": service, "type": "sqs", "queue": f"{service}-inbox"}
 
 
 def consumer_targets(cat: Catalog) -> dict[str, list[str]]:
@@ -814,7 +816,7 @@ def emit_channels(cat: Catalog) -> dict[str, str]:
 
 def emit_manifest(cat: Catalog, files: dict[str, str]) -> dict[str, str]:
     order = ["validation", "parquet", "rules/*-public-forward*", "rules/*-consumer-*", "subscribers", "archive",
-             "catalog/channels/*", "catalog/events/*/odcs.yaml", "rules/*-fan-out*  (platform-local stub only)"]
+             "catalog/channels/*", "catalog/events/*/odcs.yaml"]
     manifest = {"order": order, "files": sorted(files), "consumers": consumer_targets(cat),
                 "splitRules": sorted(f for f in files if ".part-" in f)}
     PROVENANCE["deploy-order.json"] = sorted(str(p) for p in {d.path for d in cat.domains.values()} | {s.path for s in cat.services.values()})

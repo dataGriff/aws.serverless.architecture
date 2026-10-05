@@ -33,6 +33,8 @@ The archive *shape* the data layer reads — one object per event, Hive prefixes
 
 **Locally (`platform-local`, domain-local): the Lambda shim** from Spike B writes `raw/source=…/detail_type=…/<id>.json` and **imports the same validation function** Firehose invokes on AWS, so the contract check and quarantine logic is one piece of code tested in both places. Firehose behaviour itself — buffering, partition evaluation, `processing-failed/`, the transform payload contract — is **sandbox-only** (ADR-025).
 
+Spike C fixed the shape of the shared validation step: `validate.classify(event, bundles)` returns `None` or `(reason, message)` with reasons `schema`, `pii-in-clear`, `unknown-event`; the validator is `fastjsonschema` (pure Python, no compiled dependency — the generated bundle uses only draft-07-level keywords); the generated bundles and the routing map are **packaged into the function** (Firehose transform and shim alike), never passed as environment variables, so a catalog change is a code change of the function. Quarantine keys are `processing-failed/reason=<reason>/source=…/detail_type=…/`, which DuckDB reads as Hive columns. Events whose source matches no routing-map prefix go to the platform's own bronze bucket.
+
 ## What does not change
 
 Bucket layout, CMKs, Object Lock, retention (ADR-010); the compactor reads the same prefixes (ADR-011); ODCS contracts (ADR-012); the validation rules themselves.

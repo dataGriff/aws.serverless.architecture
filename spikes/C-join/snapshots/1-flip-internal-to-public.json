@@ -1,0 +1,51 @@
+[
+  {
+    "actions": [
+      "update"
+    ],
+    "address": "module.central_archive.aws_lambda_function.fn",
+    "changed": [
+      "source_code_hash"
+    ],
+    "environment": {
+      "after": {
+        "FALLBACK_BUCKET": "platform-events-bronze"
+      },
+      "before": {
+        "FALLBACK_BUCKET": "platform-events-bronze"
+      }
+    }
+  },
+  {
+    "actions": [
+      "update"
+    ],
+    "address": "module.public_forward[\"orders-public-forward\"].aws_cloudwatch_event_rule.this",
+    "changed": [
+      "event_pattern"
+    ],
+    "event_pattern": {
+      "after": {
+        "detail-type": [
+          "OrderPlaced.v1",
+          "order.aggregate.updated.v1"
+        ],
+        "source": [
+          {
+            "prefix": "orders."
+          }
+        ]
+      },
+      "before": {
+        "detail-type": [
+          "OrderPlaced.v1"
+        ],
+        "source": [
+          {
+            "prefix": "orders."
+          }
+        ]
+      }
+    }
+  }
+]

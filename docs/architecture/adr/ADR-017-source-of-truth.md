@@ -14,6 +14,8 @@ revisit_when:
 
 EventCatalog repo; generator emits rules, policies, streams, bucket defs, Parquet and validation schemas, gateway bodies, authorizers, clients, mocks, alarms, reader roles, env pins; CI guards. CODEOWNERS per domain path; additive changes auto-merge; generator semver-pinned per account; applies canary in order (platform → one domain → rest). **No EventBridge Schema Registry** — drift is caught by the Firehose validation and the nightly checks.
 
+Two clarifications from Spikes A and C (2026-10-04): the catalog build must be idempotent on its sources — CI fails when `eventcatalog build` rewrites a file — and `CODEOWNERS` is generated to the repo root from the catalog's per-domain file whenever the catalog shares a repo. Generated artefacts that the site must render (ODCS contracts, per-event channel pages) are written into the catalog and committed; `catalog-gen check` covers them like any file under `generated/`.
+
 ## Revisit only when
 
 The monorepo becomes the bottleneck → federated catalogs, same model.

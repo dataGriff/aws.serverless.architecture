@@ -14,6 +14,14 @@ variable "grant_queue_access" {
   type    = bool
   default = true
 }
+variable "retry_policy" {
+  description = "The subscriber's retry policy, rendered on the Classic target: { maximumRetryAttempts, maximumEventAgeInSeconds }"
+  type = object({
+    maximumRetryAttempts     = number
+    maximumEventAgeInSeconds = number
+  })
+  default = null
+}
 variable "tags" {
   type    = map(string)
   default = {}
@@ -46,6 +54,13 @@ resource "aws_cloudwatch_event_target" "sqs" {
   arn            = aws_sqs_queue.target.arn
   dead_letter_config {
     arn = aws_sqs_queue.dlq.arn
+  }
+  dynamic "retry_policy" {
+    for_each = var.retry_policy == null ? [] : [var.retry_policy]
+    content {
+      maximum_retry_attempts       = retry_policy.value.maximumRetryAttempts
+      maximum_event_age_in_seconds = retry_policy.value.maximumEventAgeInSeconds
+    }
   }
 }
 

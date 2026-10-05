@@ -22,6 +22,10 @@
     "maximumRetryAttempts": 185
   },
   "targets": [
-    "order-service"
+    {
+      "queue": "order-service-inbox",
+      "service": "order-service",
+      "type": "sqs"
+    }
   ]
 }

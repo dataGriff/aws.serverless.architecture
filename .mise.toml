@@ -3,4 +3,4 @@ terraform = "1.9"
 task = "3"
 uv = "latest"
 awscli = "latest"
-node = "20"
+node = "22"  # EventCatalog 4.12 (Astro) needs >= 22.12

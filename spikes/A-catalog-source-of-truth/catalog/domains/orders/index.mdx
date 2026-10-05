@@ -17,7 +17,7 @@ x-bronze-bucket: orders-events-bronze
 
 ## Boundary
 
-Every event from this domain has `source` prefixed `orders.`. Public events are forwarded to `central-bus` by the generated public-forward rule; everything from other domains arrives on `orders-bus` through the fan-out rule.
+Every event from this domain has `source` prefixed `orders.`. Public events are forwarded to `central-bus` by the generated public-forward rule; events from other domains reach this domain only through its generated subscribers on `central-bus`, never through `orders-bus`.
 
 <CustomProperties title="Platform properties" />
 

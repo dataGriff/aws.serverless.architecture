@@ -57,8 +57,8 @@ Two domains are shown; every domain account has the same shape. Everything insid
 - **central** — the platform's EventBridge **Custom Event Bus** (`eventsv2`): public events only, retained 30 days, shared to domain accounts by RAM. It replaces the Classic central bus and its native archive.
 - **domain bus** — a domain's own EventBridge Classic bus: every event the domain publishes lands here; internal consumers are rules on it; one generated rule forwards public events to central. LocalStack emulates it.
 - **subscriber** — the Custom Event Bus's routing unit: a filter (the catalog pattern as a `DATA` filter), one target, a delivery role, a retry policy and a DLQ, created in the *consuming* domain's account from its `receives[]`. There is no fan-out; a subscriber never targets a domain bus.
-- **public / internal** — `visibility` in the catalog. Public events are forwarded to central and archived; internal events never leave the domain account.
-- **audience** — `all` (default) or `restricted`; a subscriber to a restricted event is generated only with producer approval recorded in the catalog.
+- **public / internal** — `x-visibility` in the catalog. Public events are forwarded to central and archived; internal events never leave the domain account.
+- **audience** — `x-audience: all` (default) or `restricted`; a subscriber to a restricted event is generated only with producer approval recorded in the catalog.
 - **bronze / silver** — per-domain S3 buckets in the platform account: bronze is raw NDJSON written by Firehose (audit, replay source for analytics); silver is Parquet written by the compactor (query layer).
 - **platform-local** — the versioned Terraform module a domain applies in licensed LocalStack to get a *Classic* stub central whose rules have the subscriber's shape (same filter, the consumer's queue as target), the archive shim, compactor and its own buckets, so it can test publication with no other domain present. The real Custom Event Bus is sandbox-only.
 - **saga module** — the platform's in-domain stateful-process pattern (state table + Scheduler, or Step Functions template). Never a cross-domain workflow.

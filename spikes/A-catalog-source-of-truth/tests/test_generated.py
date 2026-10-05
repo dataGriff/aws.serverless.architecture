@@ -74,7 +74,7 @@ def test_golden_snapshot(tmp_path):
     assert changed(golden, files) == set(), "generated output drifted from tests/golden (UPDATE_GOLDEN=1 to accept)"
 
 
-@pytest.mark.parametrize("target", ["rules/orders-fan-out.json", "parquet/OrderPlaced.v1.json", "catalog/events/OrderPlaced/odcs.yaml"])
+@pytest.mark.parametrize("target", ["rules/orders-public-forward.json", "parquet/OrderPlaced.v1.json", "catalog/events/OrderPlaced/odcs.yaml"])
 def test_check_fails_after_one_character_edit(tmp_path, target):
     c = copy_catalog(tmp_path)
     out = tmp_path / "out"
@@ -139,7 +139,7 @@ def test_add_receives_changes_only_consumer_pattern_and_manifest(tmp_path):
     sub = json.loads(after["subscribers/payments-customer-registered.json"])
     assert sub["filter"] == {"detail-type": ["CustomerRegistered.v1"]}
     assert sub["retryPolicy"] == {"maximumRetryAttempts": 185, "maximumEventAgeInSeconds": 86400}
-    assert sub["targets"] == ["payment-service"]
+    assert sub["targets"] == [{"service": "payment-service", "type": "sqs", "queue": "payment-service-inbox"}]
     assert json.loads(after["deploy-order.json"])["consumers"]["subscribers/payments-customer-registered.json"] == ["payment-service"]
 
 
@@ -148,6 +148,7 @@ def test_consumer_rules_ignore_commands_and_queries(tmp_path):
     assert not [k for k in files if "get-order" in k or "place-order" in k]
     # Both receives[] in the catalog are cross-domain, so they are subscribers on central, not rules on a domain bus.
     assert not [k for k in files if "-consumer-" in k]
+    assert not [k for k in files if "fan-out" in k], "ADR-021: there is no fan-out; nothing renders it (Spike C)"
     assert set(k for k in files if k.startswith("subscribers/")) == {"subscribers/orders-payment-captured.json", "subscribers/payments-order-placed.json"}
     sub = json.loads(files["subscribers/payments-order-placed.json"])
     assert sub["filter"] == {"detail-type": ["OrderPlaced.v1"], "source": [{"prefix": "orders."}]}

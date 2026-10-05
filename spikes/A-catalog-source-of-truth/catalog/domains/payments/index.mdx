@@ -17,7 +17,7 @@ x-bronze-bucket: payments-events-bronze
 
 ## Boundary
 
-Every event from this domain has `source` prefixed `payments.`. Public events are forwarded to `central-bus`; everything from other domains arrives on `payments-bus` through the fan-out rule.
+Every event from this domain has `source` prefixed `payments.`. Public events are forwarded to `central-bus`; events from other domains reach this domain only through its generated subscribers on `central-bus`, never through `payments-bus`.
 
 <CustomProperties title="Platform properties" />
 
