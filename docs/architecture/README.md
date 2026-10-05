@@ -72,6 +72,7 @@ Two domains are shown; every domain account has the same shape. Everything insid
 
 | File | Load it when |
 | --- | --- |
+| [overview.html](overview.html) | sharing the architecture with someone new: one page with the diagrams (the shape, the one hop, the catalog pipeline, archive validation, PII), the decisions, testing layers, roadmap and spike evidence; open it in a browser |
 | [decisions.md](decisions.md) | proposing or reviewing any infrastructure, routing, data or API design change; checking whether a service is permitted |
 | [adr/](adr/) | challenging one decision — each ADR carries its `revisit_when` triggers in frontmatter |
 | [trade-offs.md](trade-offs.md) | someone asks "why can't we…", or a symptom (duplicates, staleness, test gaps) needs explaining |
