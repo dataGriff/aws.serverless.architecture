@@ -1,6 +1,9 @@
 ---
 id: ADR-023
 title: "Replay — bus retention and point-in-time subscribers"
+concern: "Replay"
+decision: >-
+  **Retention on central (30 days)** is the archive; the **operational** replay is a `POINT_IN_TIME` subscriber the consumer creates in its own account with its live filter, a `TIMESTAMP` start ≥ 5 min in the past and an `EndPoint`, targeting its own queue. Replayed events carry `aws:DeliveryType=REPLAY` → `replay: true`; side-effecting consumers ignore them. S3 bronze is for analytics and audit, not for re-driving consumers.
 status: accepted
 supersedes: ADR-008
 date: 2026-10-04
@@ -46,4 +49,4 @@ The `replay` flag's meaning to consumers; bronze/silver; the quarterly replay dr
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

@@ -41,6 +41,6 @@ Turn the architecture docs into this organisation's ratified baseline, and make 
 - `spectral lint` on `conventions/fixtures/*.yaml` fails exactly once per fixture, each fixture violating one rule, with a message that names the convention.
 - The meta-schema rejects `conventions/fixtures/unclassified-field.schema.json` and accepts the envelope schema.
 - `scripts/check-quotas.sh` runs against the sandbox account and prints the comparison.
-- Every ADR has a status, a date and ratifiers; `decisions.md` still matches the ADR set.
+- Every ADR has a status, a date and ratifiers, and `task adr:check` passes (it lints the ADR set and fails if `decisions.md` drifted from the frontmatter; `task adr:build` re-renders it).
 
 {{> report-back}}

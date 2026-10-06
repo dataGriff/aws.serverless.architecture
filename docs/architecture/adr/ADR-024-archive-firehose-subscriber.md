@@ -1,6 +1,9 @@
 ---
 id: ADR-024
 title: "Archive — Firehose as a subscriber on central; a Lambda shim locally"
+concern: "Archive"
+decision: >-
+  **On AWS: Firehose, one stream per domain, as a subscriber on central** (`DATA` filter on the domain's source prefix): dynamic partitioning on `source`/`detail-type`, NDJSON, 60s buffers; the transform **validates every record against the catalog schema**, failures and `direct` PII in clear land under `processing-failed/` and alarm. Each domain runs the module on its own Classic bus for internal events. **Locally: a Lambda shim** writes the same Hive layout and imports the same validation function; Firehose behaviour is sandbox-only (LocalStack ignores partitioning, quarantine and the transform contract — Spike B).
 status: accepted
 supersedes: ADR-009
 date: 2026-10-04
@@ -47,4 +50,4 @@ Bucket layout, CMKs, Object Lock, retention (ADR-010); the compactor reads the s
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

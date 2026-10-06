@@ -1,6 +1,9 @@
 ---
 id: ADR-013
 title: "Query engine"
+concern: "Query engine"
+decision: >-
+  DuckDB — laptop, CI, Lambda. Views `UNION` across domain silvers with read-time dedupe.
 status: accepted
 date: 2026-10-04
 reviewed: unchanged
@@ -20,4 +23,4 @@ Multi-GB single queries or many concurrent BI users → Athena on the same table
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

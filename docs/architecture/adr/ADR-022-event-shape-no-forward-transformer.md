@@ -1,6 +1,9 @@
 ---
 id: ADR-022
 title: "Event shape — forwarded unchanged; transforms only on the consumer's subscriber"
+concern: "Event shape"
+decision: >-
+  Forwarded unchanged; the catalog marks it public. The envelope keeps `replay: boolean`, now **set by the consumer's generated subscriber transformer** from `SystemMetadata."aws:DeliveryType"` (to verify; `RAW` until then). Input transformers on bus targets do not exist (AWS rejects them: "Modifying the input for target … is not supported").
 status: accepted
 supersedes: ADR-006
 date: 2026-10-04
@@ -47,4 +50,4 @@ Envelope fields, `source`/`detail-type` conventions, versioning (`.v2` is a new 
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

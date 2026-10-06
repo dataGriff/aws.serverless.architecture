@@ -24,6 +24,14 @@ tasks:
     desc: Fail until every parameter in platform.yaml is localised and no placeholder is left (prompt 00's exit gate)
     cmds:
       - uv run scripts/localise_check.py
+  adr:build:
+    desc: Render the decisions table in docs/architecture/decisions.md from the ADR frontmatter
+    cmds:
+      - uv run docs/architecture/adr/build-decisions.py
+  adr:check:
+    desc: Lint the ADR set (status, dates, supersedes/superseded_by, evidence) and fail if decisions.md drifted from it
+    cmds:
+      - uv run docs/architecture/adr/build-decisions.py --check
   prompts:check:
     desc: Lint the prompts and fail if the installed commands or skills are out of date (for CI and pre-commit)
     cmds:
