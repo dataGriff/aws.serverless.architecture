@@ -50,7 +50,7 @@ flowchart TB
   G -.-> PAY
 ```
 
-Two domains are shown; every domain account has the same shape. Everything inside the platform and domain accounts is generated from the catalog. There is exactly one bus-to-bus hop per event (domain bus → central); everything after central is a subscriber delivering to a target the consumer owns. No subscriber ever targets a domain bus — see [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) for why (`THIRD_ACCOUNT_HOP_DETECTED`, `LOOP_DETECTED`) and for the sequence diagrams.
+Two domains are shown; every domain account has the same shape. `orders` and `payments` are the worked example used throughout these docs and the spikes so that every concept has a concrete name; they are not part of the pattern. The names an adopter replaces are listed in `platform.yaml` at the repo root. Everything inside the platform and domain accounts is generated from the catalog. There is exactly one bus-to-bus hop per event (domain bus → central); everything after central is a subscriber delivering to a target the consumer owns. No subscriber ever targets a domain bus — see [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) for why (`THIRD_ACCOUNT_HOP_DETECTED`, `LOOP_DETECTED`) and for the sequence diagrams.
 
 ## Glossary
 

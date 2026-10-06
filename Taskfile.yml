@@ -16,6 +16,14 @@ tasks:
     desc: Install docs/architecture/prompts/*.md as the /arch:* commands (the prompt file is the source)
     cmds:
       - python3 docs/architecture/prompts/install-commands.py
+  localise:report:
+    desc: Show every parameter in platform.yaml, its state and where its placeholder still occurs
+    cmds:
+      - uv run scripts/localise_check.py --report
+  localise:check:
+    desc: Fail until every parameter in platform.yaml is localised and no placeholder is left (prompt 00's exit gate)
+    cmds:
+      - uv run scripts/localise_check.py
   prompts:check:
     desc: Fail if .claude/commands/arch is out of date with the prompts (for CI and pre-commit)
     cmds:

@@ -37,7 +37,7 @@ Read these before deciding to adopt. Each is a consequence of a row in the decis
 ## Adopting it
 
 1. Fork or use as a template. Check the [LICENSE](LICENSE).
-2. Replace the placeholders: organisation name, region, DNS suffix (`{domain}.api.example.com`), the schema `$id` base (`https://platform.example/...`), the example domains (`orders`, `payments`), account names and the IdP. `/arch:day-one-decisions-and-conventions` does this with you and will not invent organisational facts.
+2. Replace the placeholders. [`platform.yaml`](platform.yaml) lists every one (organisation name, DNS suffix, schema `$id` base, owner emails, the IdP, the sandbox account, the region) and where it is used; `task localise:report` shows what is left and `task localise:check` is the exit gate. `orders` and `payments` are the worked example, replaced by onboarding your own domains. `/arch:day-one-decisions-and-conventions` does this with you and will not invent organisational facts.
 3. Prerequisites: Docker, `mise`, then `mise install && task doctor`. Optional for day one: a real AWS sandbox account, a LocalStack licence key in `LOCALSTACK_AUTH_TOKEN`.
 4. Open a Claude Code session at the repo root and run the day-one prompts in order, in plan mode first: `/arch:day-one-decisions-and-conventions`, `/arch:day-one-bootstrap-catalog`, `/arch:day-one-module-library-and-toolchain`. Then `/arch:step-1-walking-skeleton` and on through the roadmap. Each prompt ends with a report-back that goes in the PR; reviewers run `/arch:architecture-review`.
 5. When a request would need something the decisions table does not permit, run `/arch:evaluate-a-trigger`. "No trigger fired, do this instead" is the normal outcome.
