@@ -24,7 +24,7 @@ jobs:
       - name: Markdown links resolve
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --offline --no-progress --include-fragments 'README.md' 'AGENTS.md' 'CHANGELOG.md' 'docs/**/*.md' 'platform/**/*.md' 'templates/**/*.md' 'spikes/README.md'
+          args: --offline --no-progress --include-fragments --exclude-path node_modules --exclude-path .base 'README.md' 'AGENTS.md' 'CHANGELOG.md' 'docs/**/*.md' 'platform/**/*.md' 'templates/**/*.md' 'spikes/README.md'
           fail: true
   platform:
     name: generator, checks and the worked example (Spike A)
@@ -37,8 +37,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: spikes/A-catalog-source-of-truth/catalog/package-lock.json }
       - run: task catalog:install
-      - name: Generated output is up to date
-        run: task gen:check
+      - name: Generate, then prove nothing drifted (generated/ is gitignored, so it is produced here; the generated pages committed inside the catalog must come out identical)
+        run: task gen && task gen:check && git diff --exit-code -- catalog
       - name: Catalog checks (schema diff against the base ref on a pull request)
         run: |
           if [ -n "${{ github.base_ref }}" ]; then

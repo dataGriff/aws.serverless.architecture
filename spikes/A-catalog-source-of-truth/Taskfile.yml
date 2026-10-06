@@ -27,10 +27,12 @@ tasks:
       - git diff --exit-code -- catalog
   gen:
     desc: Generate into generated/local (+ odcs.yaml beside each public event)
-    cmds: [uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py build --catalog catalog --out generated/local]
+    cmds:
+      - uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py build --catalog catalog --out generated/local
   gen:check:
     desc: Fail on drift in generated/local or the catalog's odcs.yaml files
-    cmds: [uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py check --catalog catalog --out generated/local]
+    cmds:
+      - uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py check --catalog catalog --out generated/local
   gen:explain:
     desc: "task gen:explain -- subscribers/payments-order-placed.json"
     cmds:
