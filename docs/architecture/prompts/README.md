@@ -36,4 +36,4 @@ Every prompt has the same shape: **Before you start** (what to read), **Hard rul
 
 ## Spikes (before day one)
 
-Two isolated spikes and a join, for proving the catalog-as-source-of-truth and the LocalStack bus mechanics independently: see [spikes/README.md](spikes/README.md).
+The prompts under [spikes/](spikes/README.md) drove the four spikes whose findings became ADR-021 to ADR-025; they are kept as they ran (`historical: true`). The spikes themselves, with their findings, are under [`spikes/`](../../../spikes/README.md) at the repository root.
