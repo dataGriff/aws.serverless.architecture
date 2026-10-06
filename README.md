@@ -22,7 +22,7 @@ Not for: a single service, a single account, a team that wants Kafka or a workfl
 | The catalog generator, 10 catalog checks, a Spectral ruleset, five Terraform modules (buses, forward rule, subscriber-shaped rule, archive shim, Firehose archive) and the LocalStack test harness | [`platform/`](platform/README.md) |
 | Two templates to lift into your own repositories: a catalog repo with one starter domain that passes the whole pipeline, and a domain repo with the toolchain, pins, an L0 suite that runs today and the L1 skeletons | [`templates/`](templates/) |
 | The proof: 27 generator tests with golden snapshots, 19 LocalStack bus tests, 6 behaviour-through-the-catalog scenarios with committed plan snapshots, 18 tests against the real Custom Event Bus | [`spikes/`](spikes/README.md) |
-| A one-page shareable overview with the diagrams | [`overview.html`](docs/architecture/overview.html) |
+| A one-page shareable overview with the diagrams, published with the catalog site, which also serves `llms.txt` and `schemas.txt` for agents | [`overview.html`](docs/architecture/overview.html), [published](https://datagriff.github.io/aws.serverless.architecture/overview.html) |
 
 ## Limits and cost of entry
 
@@ -33,7 +33,7 @@ Read these before deciding to adopt. Each is a consequence of a row in the decis
 - **Licensed LocalStack is a paid dependency of every domain repo.** Domain-local tests (L1) run on the licensed image with `ENFORCE_IAM=1`. The Community image works for a look around but cannot enforce IAM.
 - **The central bus is not emulated locally.** LocalStack has nothing for the Custom Event Bus; domain-local tests use a Classic stub whose rules have the subscriber's shape. Hop limits, loop detection, DLQ records, IAM, replay and Firehose behaviour are proven only in a real AWS sandbox account, nightly and per branch (ADR-025). You need that account.
 - **Cross-account delivery through the RAM-shared bus is not yet proven.** Spike D ran in one account; step 4 of the roadmap is where it gets proven.
-- **EventCatalog core (MIT) is enough.** The generator emits the command and query pages itself so the Scale licence is not required. Analytics are batch, two to three hours behind, until a trigger says otherwise.
+- **EventCatalog core (MIT) is enough to build and generate.** The generator emits the command and query pages itself, so the Scale licence is not required for the catalog, the checks or the site. The catalog's MCP server does need Scale and server mode; without it agents use the `llms.txt` and `schemas.txt` the static site publishes (`AGENTS.md`, *Querying the catalog*). Analytics are batch, two to three hours behind, until a trigger says otherwise.
 - **The generator is bespoke software your platform team owns.** Snapshot tests and two owners are the minimum.
 
 ## Adopting it

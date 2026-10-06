@@ -35,6 +35,14 @@ The same six rules are the `hard-rules` partial every prompt carries; `task prom
 - `terraform apply` and `terraform destroy` against a real account are never run by an agent on its own; the Taskfiles run them against LocalStack, and the step-4 prompt says when a person does it for real.
 - Test names in a prompt are the acceptance criteria. Do not rename them.
 
+## Querying the catalog
+
+The catalog is the source of truth, and at twenty domains grepping `.mdx` stops working. Ask it instead; open its files only to edit them.
+
+- **With an EventCatalog Scale licence:** the catalog's built-in MCP server (`<catalog-url>/docs/mcp/`, or `/docs/mcp/domains/<domain>` scoped to one domain) exposes `getResources`, `getProducersOfMessage`, `getConsumersOfMessage`, `getSchemaForResource`, `analyzeChangeImpact`, `findResourcesByOwner` and the rest. It needs the catalog running in server mode (`output: 'server'` in `eventcatalog.config.js`) and the licence. Register it with `claude mcp add --transport http eventcatalog <url>`, or copy `.mcp.json.example` to `.mcp.json` with your URL. The standalone `@eventcatalog/mcp-server` package needs the same licence and is being retired in favour of the built-in server.
+- **Without a licence:** the static site publishes `llms.txt` (every resource with a summary), `llms-full.txt` (every resource's page) and `docs/llm/schemas.txt` (every schema and OpenAPI) at its root; the Pages workflow publishes them with the catalog. Fetch those rather than reading the tree. Locally, `npm run build` writes them under `catalog/dist/`.
+- Either way, the generator's output is the answer to "what does this produce in the accounts": `task gen:explain -- <generated file>` names the catalog files it came from.
+
 ## Vocabulary
 
 `decisions.md` and the glossary in `docs/architecture/README.md` define: central (the Custom Event Bus), domain bus, subscriber, public/internal, audience, bronze/silver, platform-local, saga module, replay flag, `x-pii`, subject-key service, ODCS, data product. Use those words.

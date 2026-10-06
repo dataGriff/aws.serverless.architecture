@@ -76,6 +76,7 @@ parameters:
     value: https://datagriff.github.io/aws.serverless.architecture/
     used_in:
       - spikes/A-catalog-source-of-truth/README.md
+      - README.md
 
   platform_region:
     about: One region for the platform and every domain account. This is a decision, not a free parameter — ADR-020 and ADR-021 chose eu-west-1 because the Custom Event Bus has no London endpoint. Change it only with a superseding ADR, then replace it here.

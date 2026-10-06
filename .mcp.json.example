@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eventcatalog": {
+      "type": "http",
+      "url": "http://localhost:3000/docs/mcp/"
+    }
+  }
+}
