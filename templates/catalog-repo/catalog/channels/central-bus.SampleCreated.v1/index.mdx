@@ -1,0 +1,23 @@
+---
+id: central-bus.SampleCreated.v1
+name: central-bus · SampleCreated.v1
+version: 1.0.0
+summary: SampleCreated.v1 on central-bus (EventBridge Custom Event Bus, platform account; ADR-021). Retained; consumers subscribe per domain.
+owners:
+- platform-team
+address: arn:aws:events:{region}:{platform-account}:event-bus/central-bus
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+x-generated: catalog-gen
+x-physical-channel: central-bus
+x-detail-type: SampleCreated.v1
+x-source: sample.sample-service
+x-event-group-id: detail.aggregateId
+x-deduplication-id: detail.eventId
+x-subscribers: []
+---
+
+Logical channel: `detail-type: SampleCreated.v1` on the physical bus `central-bus` (EventBridge Custom Event Bus, platform account). Arrives from [[channel|sample-bus.SampleCreated.v1]] through the forward rule. No subscribers yet.
+
+<ChannelInformation />

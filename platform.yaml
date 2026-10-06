@@ -19,6 +19,7 @@ parameters:
     value: "organizationName: 'Platform'"
     used_in:
       - spikes/A-catalog-source-of-truth/catalog/eventcatalog.config.js
+      - templates/catalog-repo/catalog/eventcatalog.config.js
 
   api_dns_suffix:
     about: Every domain's API is `{domain}.<suffix>`, delegated to the domain (ADR-005). Appears in the docs, the roadmap names, the OpenAPI `servers` and the API channel address.
@@ -31,6 +32,8 @@ parameters:
       - docs/architecture/prompts/14-onboard-a-new-domain.md
       - spikes/A-catalog-source-of-truth/catalog/services/order-service/openapi.yaml
       - spikes/A-catalog-source-of-truth/catalog/channels/orders-api/index.mdx
+      - templates/catalog-repo/catalog/services/sample-service/openapi.yaml
+      - templates/catalog-repo/catalog/channels/sample-api/index.mdx
 
   schema_id_base:
     about: The `$id` URL base every shared schema and event schema declares; event schemas reference shared schemas by this URL (conventions.md). It never has to resolve over the network.
@@ -39,6 +42,8 @@ parameters:
     used_in:
       - spikes/A-catalog-source-of-truth/catalog/schemas/**/*.json
       - spikes/A-catalog-source-of-truth/catalog/events/*/schema.json
+      - templates/catalog-repo/catalog/schemas/**/*.json
+      - templates/catalog-repo/catalog/events/*/schema.json
 
   team_email_suffix:
     about: Owner email addresses on the catalog's team pages.
@@ -46,6 +51,7 @@ parameters:
     value: "-team@example.com"
     used_in:
       - spikes/A-catalog-source-of-truth/catalog/teams/*.mdx
+      - templates/catalog-repo/catalog/teams/*.mdx
 
   service_repository_base:
     about: Where a service's `repository.url` on its catalog page points.
@@ -53,6 +59,8 @@ parameters:
     value: https://github.com/example/
     used_in:
       - spikes/A-catalog-source-of-truth/catalog/services/*/index.mdx
+      - templates/catalog-repo/catalog/services/*/index.mdx
+      - templates/domain-repo/pins.yaml
 
   catalog_edit_url:
     about: The catalog config's `editUrl`, so "edit this page" opens your fork.
@@ -60,6 +68,7 @@ parameters:
     value: https://github.com/dataGriff/aws.serverless.architecture/edit/main/spikes/A-catalog-source-of-truth/catalog
     used_in:
       - spikes/A-catalog-source-of-truth/catalog/eventcatalog.config.js
+      - templates/catalog-repo/catalog/eventcatalog.config.js (its own placeholder, https://github.com/example/catalog/edit/main)
 
   catalog_site_url:
     about: Where GitHub Pages publishes the catalog (`.github/workflows/pages.yml`); linked from the spike README.

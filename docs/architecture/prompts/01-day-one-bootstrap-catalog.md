@@ -32,6 +32,8 @@ A minimal catalog that already exercises every concept the platform relies on, s
 
 ## Build
 
+Start from `templates/catalog-repo/` (one starter domain, `sample`, already passing `task all` against `platform/`): copy it to the catalog repository, pin `PLATFORM`, then rename `sample` to `orders` and shape it as below. The two-domain worked example with cross-domain subscriptions is `spikes/A-catalog-source-of-truth/catalog/`.
+
 - Domain `orders` with owners; `CODEOWNERS` scoped to `domains/orders/**`, `services/order-service/**`, `events/Order*/**`.
 - Service `order-service` with `sends[]`, `receives[]` (empty for now) and `specifications: [{type: openapi, path: openapi.yaml, name: …}]` (the list form; the older object form is legacy and does not render the spec page).
 - Events: `OrderPlaced.v1` — `x-visibility: public`, `x-audience: all`, `x-source: orders.order-service`, fields `orderId`/`customerId` (`x-pii: indirect`), `total` (Money, `none`), `customerEmail` (`x-pii: direct`, `encryption: subject-key`, `decryptors: []`); `order.aggregate.updated` — `x-visibility: internal`, with an obviously internal field so the "never leaves" test has something to catch. Platform keys in frontmatter are `x-` prefixed: EventCatalog fails the build on unknown bare keys. JSON Schema per event describing the business fields only (`x-pii` on every property; the generator flattens `conventions/envelope.schema.json` into it for validation) and two example payloads each, written as full EventBridge envelopes.
@@ -40,7 +42,7 @@ A minimal catalog that already exercises every concept the platform relies on, s
 - Channels: hand-write only `orders-api`. Buses are names (`x-bus` on the domain), not channel pages; the per-event logical channels (`orders-bus.OrderPlaced.v1` → `central-bus.OrderPlaced.v1` → `{domain}-sub.OrderPlaced.v1`) are generated in step 2. Until then `order-service` `sends[].to` names `orders-bus.OrderPlaced.v1` and the page is a hand-written placeholder marked `x-generated: catalog-gen`.
 - `events/OrderPlaced/data-product.yaml` overlay (SLAs, quality thresholds, terms, intended consumers; only the overlay-owned keys in `data-contracts.md`) and a placeholder `events/OrderPlaced/odcs.yaml` marked "hand-written until step 2". The current version lives at `events/<Event>/`; `versioned/<v>/` is for previous versions only.
 - A JSON Schema for the overlay itself under `conventions/`.
-- CI: catalog build with a dirty-tree gate (`eventcatalog build` migrates frontmatter in place; fail if it rewrote a source file), Spectral, meta-schema check, ODCS lint, `$ref` resolution, "no entity in `schemas/` root".
+- CI: the template's `.github/workflows/catalog-pr.yml`, made live: catalog build with a dirty-tree gate (`eventcatalog build` migrates frontmatter in place; fail if it rewrote a source file), Spectral, meta-schema check, ODCS lint, `$ref` resolution, "no entity in `schemas/` root".
 - A README whose first line is "A PR here is how you publish an event, subscribe to one, or expose an API."
 
 ## Done when

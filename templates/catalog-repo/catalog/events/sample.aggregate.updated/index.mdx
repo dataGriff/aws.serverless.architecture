@@ -1,0 +1,28 @@
+---
+id: sample.aggregate.updated
+name: Sample aggregate updated
+version: 1.0.0
+summary: Internal change feed of the Sample aggregate for the sample domain's own projections. Never leaves the sample account.
+owners:
+  - sample-team
+schemaPath: schema.json
+badges:
+  - content: internal
+    backgroundColor: gray
+    textColor: gray
+x-visibility: internal
+x-audience: all
+x-source: sample.sample-service
+---
+
+## Routing
+
+`detail-type` is `sample.aggregate.updated.v1` on `sample-bus` only. Internal events may carry `direct` fields in clear inside the account; every copy is capped at 30 days (pii.md).
+
+<CustomProperties title="Platform properties" />
+
+## Payload
+
+<SchemaViewer file="schema.json" title="Payload schema (inside detail)" />
+
+<NodeGraph />

@@ -20,7 +20,7 @@ task -d ../B-localstack-buses-end-to-end query    # DuckDB over bronze: raw/ and
 
 | Path | What |
 | --- | --- |
-| `tests/scenarios.py` | Copy the catalog → apply one edit → `catalog-gen build` → `terraform plan/apply -var generated_dir=…` → reduce the plan to addresses, actions and changed attributes (with before/after event patterns and the shim's routing map). |
+| `tests/scenarios.py` | Copy the catalog → apply one edit → `catalog-gen build` (from `platform/catalog-gen`) → `terraform plan/apply -var generated_dir=…` → reduce the plan to addresses, actions and changed attributes (with before/after event patterns and the shim's routing map). |
 | `tests/test_catalog_drives_buses.py` | The scenarios: flip `order.aggregate.updated` to public and back; add and remove a cross-domain `receives[]`; add and remove a same-domain `receives[]`; the drift gates are wired into `task test`. |
 | `snapshots/*.json` | The committed plan for each scenario step — the "exact set of changes" claim, reviewable in a PR. |
 | `.scenarios/` (gitignored) | Per-scenario catalog copies and generator output. |

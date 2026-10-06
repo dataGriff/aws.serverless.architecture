@@ -19,7 +19,9 @@ Not for: a single service, a single account, a team that wants Kafka or a workfl
 | The conventions, PII model, data layer, data contracts (ODCS v3), testing layers and the accepted trade-offs, one short file each | [`docs/architecture/`](docs/architecture/README.md) |
 | A five-step roadmap where every step proves one mechanism and has an exit criterion | [`roadmap.md`](docs/architecture/roadmap.md) |
 | 19 agent prompts: three for day one, one per step, one for trigger evaluation, one for architecture review, four for recurring operations (add an event, add an API operation, onboard a domain, handle an erasure request), three for the spikes. Installed as `/arch:*` commands for Claude Code | [`prompts/`](docs/architecture/prompts/README.md), [`.claude/commands/arch/`](.claude/commands/arch/) |
-| A working catalog generator with 10 catalog checks, a Spectral ruleset, golden snapshots and 27 tests; Terraform modules for the buses, rules, subscribers and archive; a LocalStack harness with 19 bus tests and 6 behaviour-through-the-catalog scenario tests with committed plan snapshots; 18 tests against the real Custom Event Bus | [`spikes/`](spikes/README.md) |
+| The catalog generator, 10 catalog checks, a Spectral ruleset, five Terraform modules (buses, forward rule, subscriber-shaped rule, archive shim, Firehose archive) and the LocalStack test harness | [`platform/`](platform/README.md) |
+| Two templates to lift into your own repositories: a catalog repo with one starter domain that passes the whole pipeline, and a domain repo with the toolchain, pins, an L0 suite that runs today and the L1 skeletons | [`templates/`](templates/) |
+| The proof: 27 generator tests with golden snapshots, 19 LocalStack bus tests, 6 behaviour-through-the-catalog scenarios with committed plan snapshots, 18 tests against the real Custom Event Bus | [`spikes/`](spikes/README.md) |
 | A one-page shareable overview with the diagrams | [`overview.html`](docs/architecture/overview.html) |
 
 ## Limits and cost of entry
@@ -49,7 +51,9 @@ Read [`docs/architecture/README.md`](docs/architecture/README.md) first: it is t
 ```
 docs/architecture/        the pattern: decisions, ADRs, conventions, PII, data layer, contracts, testing, roadmap, trade-offs
 docs/architecture/prompts the agent prompts; `task prompts` installs them as .claude/commands/arch/*
-spikes/                   the evidence: four spikes with findings, the generator, checks, modules and harness as they were proven
+platform/                 the tooling: the catalog generator, the ten checks and Spectral rules, the Terraform modules, the test harness
+templates/                catalog-repo and domain-repo: what an adopter lifts into their own repositories, pinned to platform/
+spikes/                   the evidence: four spikes with findings; their suites run against platform/ and are its proof
 ```
 
-The spikes are kept as they finished. Their findings are cited by ADR-021 to ADR-025; the reusable code in them (the generator, the checks, the Terraform modules, the harness) is what the day-one prompts start from. See [`spikes/README.md`](spikes/README.md) to run them again.
+The spikes are kept as they finished and their findings are cited by ADR-021 to ADR-025. The code they proved moved to [`platform/`](platform/README.md); the spikes import it, so their suites stay its regression tests. See [`spikes/README.md`](spikes/README.md) to run them again.

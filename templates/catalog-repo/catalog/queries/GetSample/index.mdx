@@ -1,0 +1,24 @@
+---
+id: GetSample
+name: Get sample
+version: 1.0.0
+summary: >-
+  Query. GET /v1/samples/{id} on the sample API; the one synchronous hop another
+  domain is allowed into sample.
+owners:
+  - sample-team
+badges:
+  - content: query
+    backgroundColor: purple
+    textColor: purple
+x-operation: 'GET /v1/samples/{id}'
+x-operation-id: GetSample
+x-message-type: query
+x-openapi: services/sample-service/openapi.yaml
+---
+
+Mirrors `operationId: GetSample` in the sample OpenAPI, which carries `x-eventcatalog-message-type: query`. Callers use the generated client only; the sync-hop-depth check fails any chain deeper than one hop.
+
+<CustomProperties title="Operation" />
+
+<NodeGraph />

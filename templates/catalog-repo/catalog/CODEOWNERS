@@ -1,0 +1,21 @@
+# One owner per domain path. Additive changes inside a domain path auto-merge once CODEOWNERS approve (ADR-017).
+# Shared root schemas and the central bus belong to the platform team; no domain may own them.
+# GitHub reads this file from the repository root: when the catalog is its own repo, copy or symlink it there.
+
+/domains/sample/                 @example/sample-team
+/services/sample-service/        @example/sample-team
+/events/SampleCreated/           @example/sample-team
+/events/sample.aggregate.updated/ @example/sample-team
+/commands/CreateSample/          @example/sample-team
+/queries/GetSample/              @example/sample-team
+/channels/sample-bus.*/          @example/sample-team
+/channels/sample-sub.*/          @example/sample-team
+/channels/sample-api/            @example/sample-team
+/data-products/sample-events-silver/ @example/sample-team
+/schemas/sample/                 @example/sample-team
+
+/schemas/*.json                  @example/platform-team
+/channels/central-bus.*/         @example/platform-team
+/teams/                          @example/platform-team
+/eventcatalog.config.js          @example/platform-team
+/CODEOWNERS                      @example/platform-team

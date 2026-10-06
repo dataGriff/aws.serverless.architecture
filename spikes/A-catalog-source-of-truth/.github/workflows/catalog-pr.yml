@@ -3,7 +3,7 @@
 name: catalog-pr
 on:
   pull_request:
-    paths: ["spikes/A-catalog-source-of-truth/**"]
+    paths: ["spikes/A-catalog-source-of-truth/**", "platform/catalog-gen/**", "platform/checks/**"]
 jobs:
   catalog:
     runs-on: ubuntu-latest

@@ -1,0 +1,56 @@
+version: "3"
+vars:
+  # The platform tooling this catalog is checked and generated with (platform/README.md). In the platform repo this
+  # is a relative path; once this template is lifted into its own repository, point it at a pinned checkout
+  # (submodule, vendored copy, or a path) of the platform tag your accounts run (ADR-017: semver-pinned per account).
+  PLATFORM: '{{.PLATFORM | default (printf "%s/../../platform" .TASKFILE_DIR)}}'
+  BASE: '{{.BASE | default ""}}'
+tasks:
+  default:
+    cmds: [task --list]
+  catalog:install:
+    dir: catalog
+    cmds: [mise exec -- npm ci]
+  catalog:dev:
+    dir: catalog
+    cmds: [mise exec -- npm run dev]
+  catalog:build:
+    desc: Build the static site (dist/). EventCatalog 4.12 needs Node >= 22.12; .mise.toml pins it.
+    dir: catalog
+    cmds: [mise exec -- npm run build]
+  catalog:build:clean:
+    desc: Build, then fail if the build rewrote any catalog source file (it migrates old frontmatter in place)
+    cmds:
+      - task: catalog:build
+      - git diff --exit-code -- catalog
+  gen:
+    desc: Generate into generated/local (+ odcs.yaml beside each public event and the per-event channel pages)
+    cmds: [uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py build --catalog catalog --out generated/local]
+  gen:check:
+    desc: Fail on drift in generated/local or the catalog's generated files
+    cmds: [uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py check --catalog catalog --out generated/local]
+  gen:explain:
+    desc: "task gen:explain -- rules/sample-public-forward.json"
+    cmds:
+      - "uv run {{.PLATFORM}}/catalog-gen/catalog_gen.py explain --catalog catalog --out generated/local {{.CLI_ARGS}}"
+  checks:
+    desc: The ten catalog checks (BASE=<catalog on main> enables the schema diff)
+    cmds:
+      - uv run {{.PLATFORM}}/checks/run_checks.py --catalog catalog {{if .BASE}}--base {{.BASE}}{{end}}
+  spectral:
+    desc: Lint every OpenAPI in the catalog against conventions.md
+    cmds:
+      - npx -y @stoplight/spectral-cli lint -r {{.PLATFORM}}/checks/spectral.yaml 'catalog/services/**/openapi.y*ml'
+  odcs:lint:
+    desc: Lint the generated ODCS contracts (ODCS v3.0.2 JSON Schema via datacontract-cli)
+    cmds:
+      - for f in $(find catalog/events -name odcs.yaml | sort); do uvx --from datacontract-cli datacontract lint $f || exit 1; done
+  all:
+    desc: Everything a catalog PR runs, in order
+    cmds:
+      - task: gen
+      - task: gen:check
+      - task: checks
+      - task: spectral
+      - task: odcs:lint
+      - task: catalog:build:clean

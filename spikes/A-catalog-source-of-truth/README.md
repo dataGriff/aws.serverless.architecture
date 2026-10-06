@@ -15,9 +15,9 @@ task catalog:dev         # look at the site on http://localhost:3000
 | Path | What |
 | --- | --- |
 | `catalog/` | EventCatalog 4.12.3 site. Hand-written: domains, services (+ `openapi.yaml`), events (`index.mdx`, `schema.json`, `examples/`, `data-product.yaml`), commands, queries, the `orders-api` channel, teams, data products, `schemas/`, `CODEOWNERS`. Generated and committed: `events/*/odcs.yaml` and the logical channel pages `channels/{bus}.{DetailType}/`, `channels/central-bus.{DetailType}/`, `channels/{domain}-sub.{DetailType}/`. |
-| `catalog-gen/catalog_gen.py` | `build` / `check` / `explain`. Deterministic; writes `generated/local/` (rules, subscribers, routing map, validation bundles, Parquet schemas, manifest; gitignored) plus the ODCS and channel pages inside the catalog. |
-| `checks/` | `run_checks.py` (ten checks), `x-pii.metaschema.json`, `schema_diff.py`, `spectral.yaml`. |
-| `tests/` | 28 behavioural tests; `tests/golden/` is the committed snapshot of the generator output (`task test:update-golden` to accept a change). |
+| `../../platform/catalog-gen/catalog_gen.py` | `build` / `check` / `explain`. Deterministic; writes `generated/local/` (rules, subscribers, routing map, validation bundles, Parquet schemas, manifest; gitignored) plus the ODCS and channel pages inside the catalog. Written here, moved to `platform/` once proven; the Taskfile points at it. |
+| `../../platform/checks/` | `run_checks.py` (ten checks), `x-pii.metaschema.json`, `schema_diff.py`, `spectral.yaml`. Moved with the generator. |
+| `tests/` | 27 behavioural tests, the generator's and the checks' proof against this catalog; `tests/golden/` is the committed snapshot of the generator output (`task test:update-golden` to accept a change). |
 | `fixtures/checks/<check>/` | Files overlaid on a copy of the catalog so that exactly that check fails. `fixtures/schema-diff`, `fixtures/spectral`, `fixtures/odcs` serve the standalone linters. |
 | `.github/workflows/catalog-pr.yml` | The PR pipeline, calling the same Taskfile tasks. Not under the repo root on purpose: it is a specimen, unexecuted. |
 

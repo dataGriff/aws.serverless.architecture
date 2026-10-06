@@ -1,0 +1,33 @@
+{
+  "version": "0",
+  "id": "8e6c8f10-6f71-4b30-9d9c-4e5f6a7b8c9d",
+  "detail-type": "sample.aggregate.updated.v1",
+  "source": "sample.sample-service",
+  "account": "111111111111",
+  "time": "2026-10-06T09:15:02Z",
+  "region": "eu-west-1",
+  "resources": [],
+  "detail": {
+    "eventId": "2f4a1c3e-7d9e-4a0f-b12c-3d4e5f6a7b82",
+    "occurredAt": "2026-10-06T09:15:01.742Z",
+    "replay": false,
+    "correlationId": "req-7f3a2b1c",
+    "causationId": "0d2f9a1e-5b7c-4e8d-9f0a-1b2c3d4e5f60",
+    "aggregateId": "smp_01J9Q3Z8K2M4N6P8R0T2V4X6Y8",
+    "aggregateVersion": 2,
+    "sample": {
+      "sampleId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "customerId": "cus_01J9Q3Y1A2B3C4D5E6F7G8H9J0",
+      "customerEmail": "jo.bloggs@example.com",
+      "status": "active",
+      "total": {
+        "amount": "42.50",
+        "currency": "EUR"
+      },
+      "createdAt": "2026-10-06T09:15:01.700Z"
+    },
+    "changedFields": [
+      "status"
+    ]
+  }
+}

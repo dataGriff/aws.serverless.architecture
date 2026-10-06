@@ -1,0 +1,45 @@
+---
+id: sample-service
+name: Sample service
+version: 1.0.0
+summary: Accepts samples through the sample API and publishes SampleCreated.
+owners:
+  - sample-team
+sends:
+  - id: SampleCreated
+    version: 1.0.0
+    to:
+      - id: sample-bus.SampleCreated.v1
+  - id: sample.aggregate.updated
+    version: 1.0.0
+    to:
+      - id: sample-bus.sample.aggregate.updated.v1
+receives:
+  - id: CreateSample
+    version: 1.0.0
+    from:
+      - id: sample-api
+  - id: GetSample
+    version: 1.0.0
+    from:
+      - id: sample-api
+specifications:
+  - type: openapi
+    path: openapi.yaml
+    name: Sample API v1
+repository:
+  language: Python
+  url: https://github.com/example/sample-service
+x-account: sample
+x-bus: sample-bus
+---
+
+## Behaviour
+
+Commands arrive over the sample API (`POST /v1/samples`) and queries over `GET /v1/samples/{id}`; both are modelled as messages this service receives. Facts leave as events through the transactional outbox and the relay module onto `sample-bus`, and nowhere else. Each event has its own generated logical channel on that bus; the public ones route to `central-bus.<detail-type>` through the generated forward rule, the one bus-to-bus hop AWS allows. To consume another domain's public event, add a `receives[]` entry `from` this domain's `sample-sub.<detail-type>` channel; the generator creates the subscriber.
+
+<CustomProperties title="Platform properties" />
+
+<NodeGraph />
+
+<MessageTable format="all" limit={20} />

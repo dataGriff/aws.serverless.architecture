@@ -30,7 +30,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 
 Prove every mechanism once, in one account, with real tests, before any generator exists. Patterns and schemas are hand-written here, but written exactly as the generator will emit them, and sourced from the catalog checkout — the catalog remains the only place an event name or field is defined.
 
-## Build (use the modules from prompt 02)
+## Build (use the modules from prompt 02; the domain repo starts from `templates/domain-repo/`, whose L1 skeletons carry the test names below)
 
 - `platform/envs/local`: a Classic stub `central` (stand-in for the Custom Event Bus, which LocalStack does not emulate), orders' `receives[]` rendered as rules on the stub targeting orders' consumer queues (the subscriber's shape; never a rule targeting `orders-bus`), the archive shim → `orders-events-bronze` running the same validation code as the Firehose transform (ADR-024), the compactor → `orders-events-silver`, the `subject-keys` service, alarms.
 - `domains/orders`: `orders-bus`, public-forward rule, one consumer rule from `receives[]`, `order-service` with an outbox, the relay module, the idempotency store, the REST API from the catalog OpenAPI with gateway validation, handlers for `POST /v1/orders` (writes the outbox) and `GET /v1/orders/{id}`, Prism serving the same spec.

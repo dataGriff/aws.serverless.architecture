@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/schemas/Money.json",
+  "title": "Money",
+  "description": "Value object. Amount as a decimal string with ISO 4217 currency.",
+  "type": "object",
+  "x-kind": "value-object",
+  "properties": {
+    "amount": { "type": "string", "format": "decimal", "pattern": "^-?[0-9]+(\\.[0-9]{1,4})?$", "x-pii": "none" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "x-pii": "none" }
+  },
+  "required": ["amount", "currency"],
+  "additionalProperties": false
+}

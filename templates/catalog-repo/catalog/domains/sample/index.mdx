@@ -1,0 +1,26 @@
+---
+id: sample
+name: Sample
+version: 1.0.0
+summary: Starter domain. Owns the sample aggregate, the sample bus and the sample API. Rename or delete once a real domain exists.
+owners:
+  - sample-team
+services:
+  - id: sample-service
+    version: 1.0.0
+data-products:
+  - id: sample-events-silver
+x-source-prefix: sample.
+x-bus: sample-bus
+x-bronze-bucket: sample-events-bronze
+---
+
+## Boundary
+
+Every event from this domain has `source` prefixed `sample.`. Public events are forwarded to `central-bus` by the generated public-forward rule; events from other domains reach this domain only through its generated subscribers on `central-bus`, never through `sample-bus`.
+
+<CustomProperties title="Platform properties" />
+
+<NodeGraph />
+
+<MessageTable format="all" limit={20} />

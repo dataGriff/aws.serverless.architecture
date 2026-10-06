@@ -1,0 +1,21 @@
+---
+id: sample-bus.sample.aggregate.updated.v1
+name: sample-bus · sample.aggregate.updated.v1
+version: 1.0.0
+summary: 'sample.aggregate.updated.v1 on sample-bus (EventBridge Classic, sample account). Internal: never leaves this bus.'
+owners:
+- sample-team
+address: arn:aws:events:{region}:{sample-account}:event-bus/sample-bus
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+x-generated: catalog-gen
+x-physical-channel: sample-bus
+x-detail-type: sample.aggregate.updated.v1
+x-source: sample.sample-service
+x-visibility: internal
+---
+
+Logical channel: `detail-type: sample.aggregate.updated.v1` on the physical bus `sample-bus` (EventBridge Classic, sample account). Internal: consumed only by rules on this bus inside the account.
+
+<ChannelInformation />

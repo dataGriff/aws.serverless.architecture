@@ -7,6 +7,7 @@ env:
 vars:
   TF_DIR: terraform/envs/local
   SPIKE_A: "{{.TASKFILE_DIR}}/../A-catalog-source-of-truth"
+  PLATFORM: "{{.TASKFILE_DIR}}/../../platform"
   # catalog-gen output the buses are built from; override to apply a different generator run
   GENERATED: '{{.GENERATED | default (printf "%s/generated/local" .SPIKE_A)}}'
   TF_VARS: -var generated_dir={{.GENERATED}} -var enable_transformer_rule={{.TRANSFORMER | default "false"}} -var enable_firehose_probe={{.FIREHOSE | default "false"}}
@@ -36,9 +37,9 @@ tasks:
   deps:
     desc: Install the archive shim's validator (fastjsonschema, pure Python) where the Lambda zip picks it up
     cmds:
-      - uv pip install --target terraform/modules/bus-s3-archiver/.build/deps --no-compile-bytecode fastjsonschema==2.22.2
+      - uv pip install --target {{.PLATFORM}}/terraform/modules/bus-s3-archiver/.build/deps --no-compile-bytecode fastjsonschema==2.22.2
     status:
-      - test -f terraform/modules/bus-s3-archiver/.build/deps/fastjsonschema/__init__.py
+      - test -f {{.PLATFORM}}/terraform/modules/bus-s3-archiver/.build/deps/fastjsonschema/__init__.py
   gen:
     desc: Run catalog-gen (Spike A) so generated/local is current before a plan or apply
     cmds:

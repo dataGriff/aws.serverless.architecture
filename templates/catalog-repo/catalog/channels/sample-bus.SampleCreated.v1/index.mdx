@@ -1,0 +1,25 @@
+---
+id: sample-bus.SampleCreated.v1
+name: sample-bus · SampleCreated.v1
+version: 1.0.0
+summary: 'SampleCreated.v1 on sample-bus (EventBridge Classic, sample account). Public: forwarded to central-bus by the generated rule.'
+owners:
+- sample-team
+address: arn:aws:events:{region}:{sample-account}:event-bus/sample-bus
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+routes:
+- id: central-bus.SampleCreated.v1
+x-generated: catalog-gen
+x-physical-channel: sample-bus
+x-detail-type: SampleCreated.v1
+x-source: sample.sample-service
+x-visibility: public
+x-forward-rules:
+- rules/sample-public-forward.json
+---
+
+Logical channel: `detail-type: SampleCreated.v1` on the physical bus `sample-bus` (EventBridge Classic, sample account). The generated rule(s) `rules/sample-public-forward.json` forward it to central-bus (the one bus-to-bus hop AWS allows); consumers in other domains subscribe on central (see the route).
+
+<ChannelInformation />

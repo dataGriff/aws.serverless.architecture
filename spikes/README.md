@@ -1,6 +1,6 @@
 # Spikes — the evidence behind ADR-021 to ADR-025
 
-Four time-boxed spikes, run before day one, each ending in a `findings.md` that fed back into the ADRs and the roadmap. They are kept as frozen evidence: the ADRs cite them, and nothing here is the platform. The prompts that drove them are under `docs/architecture/prompts/spikes/` (also `/arch:spike-a-*`, `/arch:spike-b-*`, `/arch:spike-c-*`).
+Four time-boxed spikes, run before day one, each ending in a `findings.md` that fed back into the ADRs and the roadmap. They are kept as evidence: the ADRs cite them. The code they proved (the generator, the checks, the Terraform modules, the harness) moved to [`platform/`](../platform/README.md); the spikes import it from there, so their suites are its regression tests. The prompts that drove them are under `docs/architecture/prompts/spikes/` (also `/arch:spike-a-*`, `/arch:spike-b-*`, `/arch:spike-c-*`).
 
 | Spike | Question | Result | Needs |
 | --- | --- | --- | --- |
