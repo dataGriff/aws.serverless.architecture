@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/SampleCreated/1/schema.json",
+  "title": "SampleCreated",
+  "type": "object",
+  "properties": {
+    "sampleId": {
+      "type": "string",
+      "format": "uuid",
+      "x-pii": "none"
+    },
+    "customerId": {
+      "type": "string",
+      "x-pii": "indirect"
+    },
+    "customerEmail": {
+      "type": "string",
+      "x-pii": "direct",
+      "encryption": "subject-key",
+      "decryptors": [
+        "sample"
+      ],
+      "description": "Ciphertext envelope {enc, kid, ct}; only the listed decryptors may fetch the key."
+    },
+    "total": {
+      "$ref": "https://platform.example/schemas/Money.json",
+      "x-pii": "none"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-pii": "none"
+    }
+  },
+  "required": [
+    "sampleId",
+    "customerId",
+    "customerEmail",
+    "total",
+    "createdAt"
+  ],
+  "additionalProperties": false
+}

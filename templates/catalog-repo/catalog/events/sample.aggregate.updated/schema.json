@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/events/sample.aggregate.updated/1/schema.json",
+  "title": "sample.aggregate.updated",
+  "type": "object",
+  "properties": {
+    "sample": {
+      "$ref": "https://platform.example/schemas/sample/Sample.json",
+      "x-pii": "direct",
+      "encryption": "subject-key",
+      "decryptors": [
+        "sample"
+      ]
+    },
+    "changedFields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "x-pii": "none"
+    }
+  },
+  "required": [
+    "sample",
+    "changedFields"
+  ],
+  "additionalProperties": false
+}

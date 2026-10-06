@@ -6,7 +6,7 @@ description: "Step 4 · Real accounts — nonprod, then prod"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -17,7 +17,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 - Tests before infrastructure: L0 contract (no infra) → L1 domain-local (LocalStack + pinned `platform-local`) → L2 platform. Never depend on another domain's code or a shared environment.
 - Small commits with the ADR or doc section they implement named in the message. If a decision cannot be undone and the docs do not settle it, stop and ask, giving the options and your recommendation.
 
-**Read first:** `docs/architecture/roadmap.md (Step 4)` · `docs/architecture/adr/ADR-005-api-hosting.md` · `docs/architecture/adr/ADR-008-replay.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-014-environments.md` · `docs/architecture/adr/ADR-020-dr.md` · `docs/architecture/pii.md`
+**Read first:** `docs/architecture/roadmap.md (Step 4)` · `docs/architecture/adr/ADR-005-api-hosting.md` · `docs/architecture/adr/ADR-023-replay-retention.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-014-environments.md` · `docs/architecture/adr/ADR-020-dr.md` · `docs/architecture/pii.md`
 
 ## Goal
 

@@ -6,7 +6,7 @@ description: "Step 2 · CI guardrails for catalog and domain PRs"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -25,7 +25,7 @@ Every rule in `generation-and-ci.md` becomes a check that fails with a message n
 
 ## Catalog PR checks
 
-Schema diff vs main (breaking change on a public event needs `.v{n+1}`) · `oasdiff` (breaking API change needs `/v{n+1}`) · Spectral · `x-pii` on every field, `special` forbidden anywhere, `direct` on a public event requires `encryption: subject-key` and a `decryptors` list · `receives[]` targets are public or same-domain · `audience: restricted` subscriptions carry producer approval · `source` namespace matches owning domain · every `$ref` resolves into `schemas/`, no entity at the root · nothing depends on a version past its `sunset` · ODCS lint and diff · sync-hop-depth lint over the catalog graph · generated output and deploy-order manifest up to date · pattern size.
+Schema diff vs main (breaking change on a public event needs `.v{n+1}`) · `oasdiff` (breaking API change needs `/v{n+1}`) · Spectral · `x-pii` on every field, `special` forbidden anywhere, `direct` on a public event requires `encryption: subject-key` and a `decryptors` list · `receives[]` targets are public or same-domain · `x-audience: restricted` subscriptions carry producer approval · `source` namespace matches owning domain · every `$ref` resolves into `schemas/`, no entity at the root · nothing depends on a version past its `deprecated.date` (EventCatalog's only lifecycle field) · ODCS lint and diff · sync-hop-depth lint over the catalog graph · generated output and deploy-order manifest up to date (`catalog-gen check`, covering the ODCS and channel pages written into the catalog) · pattern size · `eventcatalog build` leaves the source tree clean.
 
 ## Domain PR checks
 

@@ -6,7 +6,7 @@ description: "Step 1 · Walking skeleton (single account, LocalStack)"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -23,7 +23,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 
 Prove every mechanism once, in one account, with real tests, before any generator exists. Patterns and schemas are hand-written here, but written exactly as the generator will emit them, and sourced from the catalog checkout — the catalog remains the only place an event name or field is defined.
 
-## Build (use the modules from prompt 02)
+## Build (use the modules from prompt 02; the domain repo starts from `templates/domain-repo/`, whose L1 skeletons carry the test names below)
 
 - `platform/envs/local`: a Classic stub `central` (stand-in for the Custom Event Bus, which LocalStack does not emulate), orders' `receives[]` rendered as rules on the stub targeting orders' consumer queues (the subscriber's shape; never a rule targeting `orders-bus`), the archive shim → `orders-events-bronze` running the same validation code as the Firehose transform (ADR-024), the compactor → `orders-events-silver`, the `subject-keys` service, alarms.
 - `domains/orders`: `orders-bus`, public-forward rule, one consumer rule from `receives[]`, `order-service` with an outbox, the relay module, the idempotency store, the REST API from the catalog OpenAPI with gateway validation, handlers for `POST /v1/orders` (writes the outbox) and `GET /v1/orders/{id}`, Prism serving the same spec.
@@ -33,7 +33,7 @@ Prove every mechanism once, in one account, with real tests, before any generato
 
 ## Tests (names are the contract)
 
-`test_public_event_reaches_central_and_bronze_with_shape_intact` · `test_internal_event_never_leaves_domain_bus` · `test_fan_out_excludes_own_events` · `test_dlq_catches_broken_target` · `test_bad_payload_is_quarantined_with_alarm` · `test_direct_field_in_clear_is_quarantined` · `test_cross_hour_duplicate_yields_one_silver_row` · `test_rerun_window_is_idempotent` · `test_replay_flag_causes_no_side_effect` · `test_api_conforms_to_spec` (Schemathesis) · `test_gateway_rejects_invalid_body` · `test_command_produces_event_with_correlation_id` · `test_direct_field_ciphertext_in_bronze_and_absent_from_silver_columns` · `test_granted_role_decrypts_ungranted_cannot` · `test_silver_passes_odcs_contract`.
+`test_public_event_reaches_central_and_bronze_with_shape_intact` · `test_internal_event_never_leaves_domain_bus` · `test_nothing_is_ever_delivered_back_to_a_domain_bus` · `test_dlq_catches_broken_target` · `test_bad_payload_is_quarantined_with_alarm` · `test_direct_field_in_clear_is_quarantined` · `test_cross_hour_duplicate_yields_one_silver_row` · `test_rerun_window_is_idempotent` · `test_replay_flag_causes_no_side_effect` · `test_api_conforms_to_spec` (Schemathesis) · `test_gateway_rejects_invalid_body` · `test_command_produces_event_with_correlation_id` · `test_direct_field_ciphertext_in_bronze_and_absent_from_silver_columns` · `test_granted_role_decrypts_ungranted_cannot` · `test_silver_passes_odcs_contract`.
 
 ## Done when
 

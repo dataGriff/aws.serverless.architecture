@@ -6,7 +6,7 @@ description: "Operation · Add or change a public event"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -25,12 +25,12 @@ Take an event from idea to produced, archived, contracted and consumed, touching
 
 ## Steps
 
-1. Catalog PR: `events/<Event>/versioned/<n>/` with schema (every field `x-pii`; `direct` fields with `encryption: subject-key` and `decryptors`), `visibility`, `audience`, two examples, the `data-product.yaml` overlay; `sends[]` on the service; `schemas/` references only. If the change is breaking, it is a new version: keep the old one, set `deprecated` and `sunset`, and plan to dual-publish.
-2. Run `catalog-gen build` for `test`; review the generated diff — it should be: forward pattern, Firehose routing and validation bundle, Parquet schema, ODCS, view DDL, one alarm, and nothing else. Anything else means the catalog entry is wrong.
+1. Catalog PR: `events/<Event>/` with schema (every field `x-pii`; `direct` fields with `encryption: subject-key` and `decryptors`), `x-visibility`, `x-audience`, `x-source`, two examples as full envelopes (`direct` fields as ciphertext when public), the `data-product.yaml` overlay; `sends[].to` the event's channel on the service's own bus; `schemas/` references by `$id`. If the change is breaking, it is a new version: move the old one to `events/<Event>/versioned/<v>/` with its `odcs.yaml`, set `deprecated: {date, message}` on it, and plan to dual-publish.
+2. Run `catalog-gen build` for `test`; review the generated diff — it should be: forward pattern, Firehose routing and validation bundle, Parquet schema, ODCS, the event's channel pages, view DDL, one alarm, and nothing else. Anything else means the catalog entry is wrong.
 3. Producer: build the event with the shared library (envelope, `correlationId` from the inbound `X-Correlation-Id`, `direct` fields encrypted); write it to the outbox in the same transaction as the state change.
 4. Tests: L0 (event validates against the catalog schema and envelope); L1 (`assert_published`, quarantine on a deliberately broken payload, ciphertext check, silver row with the expected `d_*` columns, `datacontract test` green).
-5. Consumers: they subscribe with their own PR adding `receives[]`; if the event is `audience: restricted`, obtain the producer approval entry; consumers bump their pin to see the new version.
-6. On version bump: dual-publish until `sunset`; CI will fail any consumer still on the old version past that date.
+5. Consumers: they subscribe with their own PR adding `receives[]` from their own `{domain}-sub.<detail-type>` channel; if the event is `x-audience: restricted`, obtain the producer approval entry; consumers bump their pin to see the new version.
+6. On version bump: dual-publish until the old version's `deprecated.date`; CI will fail any consumer still on the old version past that date.
 
 ## Done when
 

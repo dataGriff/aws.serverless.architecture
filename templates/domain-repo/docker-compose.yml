@@ -1,0 +1,12 @@
+services:
+  localstack:
+    # Pinned. `latest` (2026.x) exits with "License activation failed" unless LOCALSTACK_AUTH_TOKEN is set;
+    # 4.x is the last Community line. See findings.md. Licensed override: docker-compose.licensed.yml
+    image: localstack/localstack:4.14.0
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=events,sqs,s3,iam,lambda,sts,logs,firehose
+      - DEBUG=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

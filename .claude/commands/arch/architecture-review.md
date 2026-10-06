@@ -6,7 +6,7 @@ description: "Cross-cutting · Review a change against the architecture"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -27,7 +27,7 @@ Review a PR or design the way the catalog CI would if it could read intent: find
 
 - Does it add a service or component the decisions table does not permit? Cite the row.
 - Is anything in an account hand-written that the generator should emit? Name the file and the emitter.
-- Events: `source`/`detail-type` conventions, envelope fields, `x-pii` on every field, `direct` encrypted in public events, `special` absent, `audience` set, version bump on breaking change, `sunset` handled, `replay` honoured by side-effecting consumers.
+- Events: `source`/`detail-type` conventions, envelope fields, `x-pii` on every field, `direct` encrypted in public events, `special` absent, `x-visibility` and `x-audience` set, version bump on breaking change, `deprecated.date` set on the old version (and `Sunset`/`Deprecation` headers on an old API version), `replay` honoured by side-effecting consumers.
 - APIs: message type on every operation, `/v{n}`, `problem+json`, `Idempotency-Key` on commands, `X-Correlation-Id` propagated, `$ref` into `schemas/`, external routes marked, one synchronous hop.
 - Data: silver columns match the ODCS contract; no `direct` field became a column; retention and classification declared; a new dataset has a contract before a consumer.
 - Tests: L0 and L1 present and meaningful; no dependency on another domain's code or a shared environment; the step's exit criteria still hold.

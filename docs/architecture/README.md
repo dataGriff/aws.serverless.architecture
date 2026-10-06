@@ -50,7 +50,7 @@ flowchart TB
   G -.-> PAY
 ```
 
-Two domains are shown; every domain account has the same shape. Everything inside the platform and domain accounts is generated from the catalog. There is exactly one bus-to-bus hop per event (domain bus → central); everything after central is a subscriber delivering to a target the consumer owns. No subscriber ever targets a domain bus — see [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) for why (`THIRD_ACCOUNT_HOP_DETECTED`, `LOOP_DETECTED`) and for the sequence diagrams.
+Two domains are shown; every domain account has the same shape. `orders` and `payments` are the worked example used throughout these docs and the spikes so that every concept has a concrete name; they are not part of the pattern. The names an adopter replaces are listed in `platform.yaml` at the repo root. Everything inside the platform and domain accounts is generated from the catalog. There is exactly one bus-to-bus hop per event (domain bus → central); everything after central is a subscriber delivering to a target the consumer owns. No subscriber ever targets a domain bus — see [ADR-021](adr/ADR-021-transport-routing-custom-bus.md) for why (`THIRD_ACCOUNT_HOP_DETECTED`, `LOOP_DETECTED`) and for the sequence diagrams.
 
 ## Glossary
 
@@ -74,7 +74,7 @@ Two domains are shown; every domain account has the same shape. Everything insid
 | --- | --- |
 | [overview.html](overview.html) | sharing the architecture with someone new: one page with the diagrams (the shape, the one hop, the catalog pipeline, archive validation, PII), the decisions, testing layers, roadmap and spike evidence; open it in a browser |
 | [decisions.md](decisions.md) | proposing or reviewing any infrastructure, routing, data or API design change; checking whether a service is permitted |
-| [adr/](adr/) | challenging one decision — each ADR carries its `revisit_when` triggers in frontmatter |
+| [adr/](adr/) | challenging one decision — each ADR carries its `revisit_when` triggers in frontmatter; new ones start from [adr/TEMPLATE.md](adr/TEMPLATE.md) |
 | [trade-offs.md](trade-offs.md) | someone asks "why can't we…", or a symptom (duplicates, staleness, test gaps) needs explaining |
 | [conventions.md](conventions.md) | writing or reviewing an event, an API operation, a consumer, or a catalog entry |
 | [generation-and-ci.md](generation-and-ci.md) | changing the generator, adding a catalog field, or wondering why CI failed |

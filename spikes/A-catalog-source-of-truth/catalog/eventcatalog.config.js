@@ -6,7 +6,7 @@ export default {
   organizationName: 'Platform',
   theme: 'sunset',
   homepageLink: 'https://eventcatalog.dev/',
-  editUrl: 'https://github.com/boyney123/eventcatalog-demo/edit/master',
+  editUrl: 'https://github.com/dataGriff/aws.serverless.architecture/edit/main/spikes/A-catalog-source-of-truth/catalog', // platform.yaml: catalog_edit_url
   // Supports static or server. Static renders a static site, server renders a server side rendered site
   // large catalogs may benefit from server side rendering
   output: 'static',

@@ -927,7 +927,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--pattern-limit", type=int, default=4096, help="EventBridge pattern size limit in bytes")
     ap.add_argument("path", nargs="?")
-    a = ap.parse_args()
+    a = ap.parse_intermixed_args()   # `explain --catalog … --out … <path>`: a positional after options; parse_args drops it on Python 3.12
     PATTERN_LIMIT = a.pattern_limit
     catalog = a.catalog.resolve()
     cat = load(catalog)

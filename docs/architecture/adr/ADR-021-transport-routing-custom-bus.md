@@ -1,6 +1,9 @@
 ---
 id: ADR-021
 title: "Transport & routing — Classic domain buses, Custom central bus"
+concern: "Transport & routing"
+decision: >-
+  **Classic domain buses, Custom central bus.** Each domain keeps its Classic bus (internal events, outbox relay, one generated forward rule → central). Central is an EventBridge **Custom Event Bus** shared by RAM; **no fan-out** — each domain creates a subscriber per `receives[]` in its own account (Classic pattern as `DATA` filter, own role, DLQ, explicit retry, its own queue/function as target). Relay sets `EventGroupId=aggregateId`, `DeduplicationId=eventId`. No subscriber may target a Classic bus that forwards into central. *Why:* EventBridge Classic delivers one bus-to-bus hop; the ADR-001 chain is refused with `THIRD_ACCOUNT_HOP_DETECTED` (Spike B, real account).
 status: accepted
 supersedes: ADR-001
 date: 2026-10-04
@@ -155,4 +158,4 @@ Domain buses, the outbox relay module, the public-forward rule and its pattern, 
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

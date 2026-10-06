@@ -6,7 +6,7 @@ description: "Operation · Onboard a new domain"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -25,10 +25,10 @@ A new domain live in nonprod in a day, by catalog PR plus accounts, with nothing
 
 ## Steps
 
-1. Catalog PR: `domains/<name>` with owners and CODEOWNERS; first service with its OpenAPI (one command, one query); first public and first internal event with schemas, `x-pii`, examples and the overlay; channels for the bus and the API.
+1. Catalog PR: `domains/<name>` with owners and CODEOWNERS; first service with its OpenAPI (one command, one query); first public and first internal event with schemas, `x-pii`, examples and the overlay; a channel for the API only (`x-bus` names the bus; the per-event channels are generated).
 2. Accounts: nonprod and prod for the domain, OIDC roles for its pipeline, environment pins pointing at the current catalog tag; DNS delegation for `<name>.api.example.com`.
 3. Run `catalog-gen build` for every environment: expect the bus, bucket pair, the RAM share of central to the new account, its subscribers (from `receives[]`) and Firehose subscriber on central, compactor, reader role, alarms, REST API body, DNS record, and the domain's ODCS contracts. The platform pipeline applies the central-side changes in manifest order; the domain pipeline applies its own.
-4. Domain repo from the template: `platform-local` and `platform_testing` pinned, Taskfile, the L0/L1 suites, Schemathesis, Prism for any upstream API it calls.
+4. Domain repo from `templates/domain-repo/` (lifted into its own repository): `platform-local` and `platform_testing` pinned, Taskfile, the L0/L1 suites, Schemathesis, Prism for any upstream API it calls.
 5. Smokes: `SmokeTest.v1` into its bronze, `GET /v1/health` through the authorizer.
 6. First consumer in another domain subscribes with a `receives[]` PR, pinned.
 

@@ -17,7 +17,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Fix the conventions
 
-- Events: `source = {domain}.{service}`; `detail-type = {Name}.v{n}`; envelope `eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`; catalog fields `visibility`, `audience`, `pii`, `deprecated`, `sunset`
+- Events: `source = {domain}.{service}`; `detail-type = {Name}.v{n}`; envelope `eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`; catalog frontmatter `x-visibility`, `x-audience`, `x-source`, `deprecated: {date, message}`; `x-pii` on every JSON Schema property
 - APIs: OpenAPI 3.1; `/v{n}`; additive = minor; RFC 9457 `problem+json`; `Idempotency-Key` on every command; cursor pagination; `X-Correlation-Id`; `Sunset`/`Deprecation` headers; a Spectral ruleset that encodes all of it
 - `schemas/` = value objects only; entities under `schemas/{domain}/`; every field carries `x-pii`; the 4KB pattern limit means the generator splits forward rules when the public list grows
 - Names: `{domain}-bus`, `{domain}-events-bronze|silver`, `{domain}.api.example.com`, `{domain}-reader`
@@ -35,7 +35,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Build
 
-- `orders-bus` (Classic) and a Classic stub `central`; public-forward rule; the `receives[]` entry rendered as a rule *on the stub central* targeting orders' consumer queue — the subscriber's shape, one hop, no fan-out. Start from Spike C's modules (`spikes/B-localstack-buses-end-to-end/terraform`: `event-bus`, `bus-forward-rule`, `bus-sqs-rule` with the subscriber's retry policy, `bus-s3-archiver`) and its scenario-snapshot tests (`spikes/C-join/tests/scenarios.py`); the consumer's inbox queue (`{service}-inbox`, the generated target reference) is created by the domain, not by the subscriber module
+- `orders-bus` (Classic) and a Classic stub `central`; public-forward rule; the `receives[]` entry rendered as a rule *on the stub central* targeting orders' consumer queue — the subscriber's shape, one hop, no fan-out. Start from the platform modules (`platform/terraform/modules`: `event-bus`, `bus-forward-rule`, `bus-sqs-rule` with the subscriber's retry policy, `bus-s3-archiver`), the harness (`platform/platform_testing`) and Spike C's scenario-snapshot tests (`spikes/C-join/tests/scenarios.py`); the domain repo starts from `templates/domain-repo/`; the consumer's inbox queue (`{service}-inbox`, the generated target reference) is created by the domain, not by the subscriber module
 - Archive: Firehose (or a Lambda shim where LocalStack lacks the feature) with the validation transform into `orders-events-bronze`; compactor at T−2h with daily re-compaction → `orders-events-silver`; DuckDB views with read-time dedupe
 - Orders REST API from the catalog OpenAPI with gateway validation; one command (`POST /orders` → outbox relay module) and one query; Prism serving the same spec; idempotency-store module behind the command
 - One `direct` field (customer email on `OrderPlaced.v1`) encrypted end to end through the subject-keys module; a consumer role with a decrypt grant and one without

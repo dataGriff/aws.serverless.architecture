@@ -1,0 +1,72 @@
+# Runs on every pull request and on main. Everything here is a Taskfile task a contributor runs locally; no step
+# needs Docker, a LocalStack licence or an AWS account (those suites are the spikes' and the nightly L2 run's).
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  docs-and-prompts:
+    name: prompts, ADRs, placeholders, links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2            # task, uv, node 22, terraform, awscli from .mise.toml
+      - name: Installed commands and skills match the prompts; no prompt names a superseded ADR or retired vocabulary
+        run: task prompts:check
+      - name: ADR set is consistent and decisions.md is rendered from it
+        run: task adr:check
+      - name: Placeholders still in place (informational; task localise:check is an adopter's gate)
+        run: task localise:report
+      - name: Markdown links resolve
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress --include-fragments --exclude-path node_modules --exclude-path .base 'README.md' 'AGENTS.md' 'CHANGELOG.md' 'docs/**/*.md' 'platform/**/*.md' 'templates/**/*.md' 'spikes/README.md'
+          fail: true
+  platform:
+    name: generator, checks and the worked example (Spike A)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: spikes/A-catalog-source-of-truth } }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: jdx/mise-action@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: spikes/A-catalog-source-of-truth/catalog/package-lock.json }
+      - run: task catalog:install
+      - name: Generate, then prove nothing drifted (generated/ is gitignored, so it is produced here; the generated pages committed inside the catalog must come out identical)
+        run: task gen && task gen:check && git diff --exit-code -- catalog
+      - name: Catalog checks (schema diff against the base ref on a pull request)
+        run: |
+          if [ -n "${{ github.base_ref }}" ]; then
+            git worktree add ../../.base origin/${{ github.base_ref }}
+            task checks BASE=../../.base/spikes/A-catalog-source-of-truth/catalog
+          else
+            task checks
+          fi
+      - run: task spectral
+      - run: task odcs:lint
+      - name: Generator and checks behavioural tests (golden snapshot, fixtures)
+        run: task test
+      - name: Site builds and the build does not rewrite the catalog
+        run: task catalog:build:clean
+  templates:
+    name: templates pass the pipeline they ship
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
+      - name: catalog-repo template, generator → checks → Spectral → ODCS lint → site build with a clean tree
+        working-directory: templates/catalog-repo
+        run: task catalog:install && task all
+      - name: domain-repo template, L0 contract suite against the template catalog
+        working-directory: templates/domain-repo
+        env:
+          PLATFORM_CATALOG: ${{ github.workspace }}/templates/catalog-repo/catalog
+          GENERATED: ${{ github.workspace }}/templates/catalog-repo/generated/local
+        run: uv run --with boto3 --with pytest --with duckdb --with pyyaml --with jsonschema --with fastjsonschema pytest -q tests -m l0

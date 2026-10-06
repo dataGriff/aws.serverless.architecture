@@ -1,0 +1,13 @@
+.catalog/
+generated/
+.queues.json
+.dlqs.json
+.archive_buckets.json
+.generated_dir.json
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+__pycache__/
+.pytest_cache/
+.venv/

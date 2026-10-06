@@ -27,6 +27,7 @@ provider "aws" {
 
 # Spike C: every routing pattern, subscriber, bus-policy principal, validation bundle and the archive routing map
 # come from catalog-gen's output. Nothing routing-shaped is written by hand in this file.
+# The modules live in platform/terraform/modules (moved out of this spike once proven).
 # Override to plan/apply a different generator output (the behaviour-through-the-catalog tests do this).
 variable "generated_dir" {
   type    = string
@@ -96,7 +97,7 @@ locals {
 # ---- Buses -------------------------------------------------------------------
 # central: every domain with a forward rule may PutEvents (its public-forward rule's role).
 module "central_bus" {
-  source                = "../../modules/event-bus"
+  source                = "../../../../../platform/terraform/modules/event-bus"
   name                  = "central-bus"
   put_events_principals = distinct([for d in local.forwarding_domains : "arn:aws:iam::${local.domain_accounts[d]}:root"])
   tags                  = local.tags
@@ -105,7 +106,7 @@ module "central_bus" {
 # domain: nobody outside the account puts events here (ADR-021: no fan-out from central), so no cross-account policy.
 module "domain_bus" {
   for_each = toset(local.domains)
-  source   = "../../modules/event-bus"
+  source   = "../../../../../platform/terraform/modules/event-bus"
   name     = "${each.key}-bus"
   tags     = local.tags
 }
@@ -113,7 +114,7 @@ module "domain_bus" {
 # ---- Domain -> central: public-forward ----------------------------------------
 module "public_forward" {
   for_each        = local.forward_rules
-  source          = "../../modules/bus-forward-rule"
+  source          = "../../../../../platform/terraform/modules/bus-forward-rule"
   name            = each.key
   source_bus_name = module.domain_bus[each.value.domain].name
   target_bus_arn  = module.central_bus.arn
@@ -124,7 +125,7 @@ module "public_forward" {
 # ---- Subscribers on central (Classic rendering of the eventsv2 subscriber) ----
 module "subscriber" {
   for_each      = local.subscribers
-  source        = "../../modules/bus-sqs-rule"
+  source        = "../../../../../platform/terraform/modules/bus-sqs-rule"
   name          = each.value.name
   bus_name      = module.central_bus.name
   event_pattern = each.value.filter
@@ -135,7 +136,7 @@ module "subscriber" {
 # ---- Same-domain consumer rules on the domain's own bus ------------------------
 module "consumer_rule" {
   for_each      = local.consumer_rules
-  source        = "../../modules/bus-sqs-rule"
+  source        = "../../../../../platform/terraform/modules/bus-sqs-rule"
   name          = each.key
   bus_name      = module.domain_bus[each.value.domain].name
   event_pattern = each.value.pattern
@@ -145,7 +146,7 @@ module "consumer_rule" {
 # ---- Probes: everything on each domain bus, and everything on central ---------
 module "probe" {
   for_each      = toset(concat(local.domains, ["central"]))
-  source        = "../../modules/bus-sqs-rule"
+  source        = "../../../../../platform/terraform/modules/bus-sqs-rule"
   name          = "${each.key}-probe-all"
   bus_name      = each.key == "central" ? module.central_bus.name : module.domain_bus[each.key].name
   event_pattern = local.probe_all
@@ -154,7 +155,7 @@ module "probe" {
 
 # ---- Deliberately broken target: queue without an access policy -> DLQ -------
 module "broken_target" {
-  source             = "../../modules/bus-sqs-rule"
+  source             = "../../../../../platform/terraform/modules/bus-sqs-rule"
   name               = "central-broken-target"
   bus_name           = module.central_bus.name
   event_pattern      = local.broken_target
@@ -164,7 +165,7 @@ module "broken_target" {
 
 # ---- Archive shim on central (ADR-024): validate against the generated bundle, route by the routing map ----
 module "central_archive" {
-  source           = "../../modules/bus-s3-archiver"
+  source           = "../../../../../platform/terraform/modules/bus-s3-archiver"
   name             = "central-archive"
   bus_name         = module.central_bus.name
   event_pattern    = local.probe_all
@@ -176,7 +177,7 @@ module "central_archive" {
 
 module "firehose_probe" {
   count         = var.enable_firehose_probe ? 1 : 0
-  source        = "../../modules/bus-firehose-archive"
+  source        = "../../../../../platform/terraform/modules/bus-firehose-archive"
   name          = "central-bronze"
   bus_name      = module.central_bus.name
   event_pattern = local.probe_all
@@ -188,7 +189,7 @@ output "firehose_bucket" { value = var.enable_firehose_probe ? module.firehose_p
 # ---- Optional: input transformer on a forward rule (ADR-022: rejected on AWS and on licensed LocalStack)
 module "transformer_forward" {
   count           = var.enable_transformer_rule ? 1 : 0
-  source          = "../../modules/bus-forward-rule"
+  source          = "../../../../../platform/terraform/modules/bus-forward-rule"
   name            = "orders-transformer-forward"
   source_bus_name = module.domain_bus["orders"].name
   target_bus_arn  = module.central_bus.arn

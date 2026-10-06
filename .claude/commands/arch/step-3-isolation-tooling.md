@@ -6,7 +6,7 @@ description: "Step 3 · platform-local, platform_testing and the erasure drill"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -17,7 +17,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 - Tests before infrastructure: L0 contract (no infra) → L1 domain-local (LocalStack + pinned `platform-local`) → L2 platform. Never depend on another domain's code or a shared environment.
 - Small commits with the ADR or doc section they implement named in the message. If a decision cannot be undone and the docs do not settle it, stop and ask, giving the options and your recommendation.
 
-**Read first:** `docs/architecture/testing.md` · `docs/architecture/roadmap.md (Step 3)` · `docs/architecture/pii.md` · `docs/architecture/adr/ADR-019-testing.md`
+**Read first:** `docs/architecture/testing.md` · `docs/architecture/roadmap.md (Step 3)` · `docs/architecture/pii.md` · `docs/architecture/adr/ADR-025-testing-sandbox-only.md`
 
 ## Goal
 

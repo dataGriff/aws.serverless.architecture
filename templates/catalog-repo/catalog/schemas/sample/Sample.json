@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/schemas/sample/Sample.json",
+  "title": "Sample",
+  "description": "Entity owned by the sample domain. Internal events and the sample API carry it; public events carry its id.",
+  "type": "object",
+  "x-kind": "entity",
+  "properties": {
+    "sampleId": {
+      "type": "string",
+      "format": "uuid",
+      "x-pii": "none"
+    },
+    "customerId": {
+      "type": "string",
+      "x-pii": "indirect"
+    },
+    "customerEmail": {
+      "type": "string",
+      "format": "email",
+      "x-pii": "direct",
+      "encryption": "subject-key",
+      "decryptors": [
+        "sample"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "created",
+        "active",
+        "closed"
+      ],
+      "x-pii": "none"
+    },
+    "total": {
+      "$ref": "../Money.json",
+      "x-pii": "none"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-pii": "none"
+    }
+  },
+  "required": [
+    "sampleId",
+    "customerId",
+    "status",
+    "total"
+  ],
+  "additionalProperties": false
+}

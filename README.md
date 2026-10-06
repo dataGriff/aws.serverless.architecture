@@ -1,36 +1,61 @@
 # aws.serverless.architecture
 
-Event & API platform on AWS serverless — proposal, decisions, and the spikes that test it.
+[![ci](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/ci.yml) [![pages](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/pages.yml/badge.svg)](https://datagriff.github.io/aws.serverless.architecture/)
 
-Everything needed to run the two isolated spikes and the join, with starter code so the first session is short.
+An event and API platform pattern on AWS serverless, written so that an organisation can fork it, replace the parameters, and have agents build it: the decisions with the only triggers that reopen them, the conventions a catalog CI enforces, one ready-to-run prompt per roadmap step and per recurring operation, and the spikes that proved the load-bearing ideas before day one.
+
+## Who this is for
+
+- Several business domains, each owning its services, its API and its events, each in its own AWS account, with a platform team owning the routing, archive and data layer between them
+- Event-first on EventBridge, REST APIs from OpenAPI, S3 + Parquet + DuckDB for analytics, EventCatalog as the single source of truth that generates every account's IaC
+- Personal data in events as a fact to classify and encrypt per subject rather than a thing to ban, with erasure as key deletion
+- Teams that want agents to do the building from written-down decisions, and a reviewer to check the result against the same decisions
+
+Not for: a single service, a single account, a team that wants Kafka or a workflow engine on day one, or a system that must run in a region without the EventBridge Custom Event Bus (see the limits below).
+
+## What you get
+
+| | Where |
+| --- | --- |
+| 25 architecture decision records, each with `revisit_when` triggers in machine-readable frontmatter; one decisions table that is the review checklist | [`docs/architecture/decisions.md`](docs/architecture/decisions.md), [`adr/`](docs/architecture/adr/) |
+| The conventions, PII model, data layer, data contracts (ODCS v3), testing layers and the accepted trade-offs, one short file each | [`docs/architecture/`](docs/architecture/README.md) |
+| A five-step roadmap where every step proves one mechanism and has an exit criterion | [`roadmap.md`](docs/architecture/roadmap.md) |
+| 19 agent prompts: three for day one, one per step, one for trigger evaluation, one for architecture review, four for recurring operations (add an event, add an API operation, onboard a domain, handle an erasure request), three for the spikes. Installed as `/arch:*` commands for Claude Code | [`prompts/`](docs/architecture/prompts/README.md), [`.claude/commands/arch/`](.claude/commands/arch/) |
+| The catalog generator, 10 catalog checks, a Spectral ruleset, five Terraform modules (buses, forward rule, subscriber-shaped rule, archive shim, Firehose archive) and the LocalStack test harness | [`platform/`](platform/README.md) |
+| Two templates to lift into your own repositories: a catalog repo with one starter domain that passes the whole pipeline, and a domain repo with the toolchain, pins, an L0 suite that runs today and the L1 skeletons | [`templates/`](templates/) |
+| The proof: 27 generator tests with golden snapshots, 19 LocalStack bus tests, 6 behaviour-through-the-catalog scenarios with committed plan snapshots, 18 tests against the real Custom Event Bus | [`spikes/`](spikes/README.md) |
+| A one-page shareable overview with the diagrams, published with the catalog site, which also serves `llms.txt` and `schemas.txt` for agents | [`overview.html`](docs/architecture/overview.html), [published](https://datagriff.github.io/aws.serverless.architecture/overview.html) |
+
+## Limits and cost of entry
+
+Read these before deciding to adopt. Each is a consequence of a row in the decisions table and is explained in [`trade-offs.md`](docs/architecture/trade-offs.md).
+
+- **One region, eu-west-1.** The EventBridge Custom Event Bus used as the central bus has no London (eu-west-2) endpoint at the time of writing. Data stays in the EU; UK-only residency is a named trigger, not a default.
+- **EventBridge only.** Classic buses per domain, a Custom Event Bus as central, one bus-to-bus hop per event. Kinesis, Kafka, Step Functions outside the saga module, Temporal, a central gateway and a Schema Registry are each behind a named trigger.
+- **Licensed LocalStack is a paid dependency of every domain repo.** Domain-local tests (L1) run on the licensed image with `ENFORCE_IAM=1`. The Community image works for a look around but cannot enforce IAM.
+- **The central bus is not emulated locally.** LocalStack has nothing for the Custom Event Bus; domain-local tests use a Classic stub whose rules have the subscriber's shape. Hop limits, loop detection, DLQ records, IAM, replay and Firehose behaviour are proven only in a real AWS sandbox account, nightly and per branch (ADR-025). You need that account.
+- **Cross-account delivery through the RAM-shared bus is not yet proven.** Spike D ran in one account; step 4 of the roadmap is where it gets proven.
+- **EventCatalog core (MIT) is enough to build and generate.** The generator emits the command and query pages itself, so the Scale licence is not required for the catalog, the checks or the site. The catalog's MCP server does need Scale and server mode; without it agents use the `llms.txt` and `schemas.txt` the static site publishes (`AGENTS.md`, *Querying the catalog*). Analytics are batch, two to three hours behind, until a trigger says otherwise.
+- **The generator is bespoke software your platform team owns.** Snapshot tests and two owners are the minimum.
+
+## Adopting it
+
+1. Fork or use as a template. Check the [LICENSE](LICENSE).
+2. Replace the placeholders. [`platform.yaml`](platform.yaml) lists every one (organisation name, DNS suffix, schema `$id` base, owner emails, the IdP, the sandbox account, the region) and where it is used; `task localise:report` shows what is left and `task localise:check` is the exit gate. `orders` and `payments` are the worked example, replaced by onboarding your own domains. `/arch:day-one-decisions-and-conventions` does this with you and will not invent organisational facts.
+3. Prerequisites: Docker, `mise`, then `mise install && task doctor`. Optional for day one: a real AWS sandbox account, a LocalStack licence key in `LOCALSTACK_AUTH_TOKEN`.
+4. Open a Claude Code session at the repo root and run the day-one prompts in order, in plan mode first: `/arch:day-one-decisions-and-conventions`, `/arch:day-one-bootstrap-catalog`, `/arch:day-one-module-library-and-toolchain`. Then `/arch:step-1-walking-skeleton` and on through the roadmap. Each prompt ends with a report-back that goes in the PR; reviewers run `/arch:architecture-review`.
+5. When a request would need something the decisions table does not permit, run `/arch:evaluate-a-trigger`. "No trigger fired, do this instead" is the normal outcome.
+
+Read [`docs/architecture/README.md`](docs/architecture/README.md) first: it is the index and the glossary.
+
+## Layout
 
 ```
-docs/architecture/        the proposal: decisions, ADRs, conventions, PII, data layer, contracts, testing, roadmap, prompts
-.claude/commands/arch/    the prompts as Claude Code commands  (/arch:spike-a-catalog-source-of-truth …)
-spikes/A-…                catalog + generator skeleton + checks + tests   (no AWS)
-spikes/B-…                LocalStack: 3 buses, hand-written patterns, probes, DLQ, harness, 10 tests
-spikes/C-join/            how to join A and B once both are green
+docs/architecture/        the pattern: decisions, ADRs, conventions, PII, data layer, contracts, testing, roadmap, trade-offs
+docs/architecture/prompts the agent prompts; `task prompts` installs them as .claude/commands/arch/*
+platform/                 the tooling: the catalog generator, the ten checks and Spectral rules, the Terraform modules, the test harness
+templates/                catalog-repo and domain-repo: what an adopter lifts into their own repositories, pinned to platform/
+spikes/                   the evidence: four spikes with findings; their suites run against platform/ and are its proof
 ```
 
-## Quick start (about 30 minutes before the agents take over)
-
-1. Prerequisites: Docker running, `mise` installed. Then `mise install && task doctor`.
-2. Spike B needs nothing else: `cd spikes/B-localstack-buses-end-to-end && task up && task apply && task test`
-   — expect some tests to fail on a fresh LocalStack; the spike's job is to find out which and why.
-3. Spike A needs the catalog created once: `cd spikes/A-catalog-source-of-truth && task catalog:create`
-   (interactive, pick the default template), then `task all`. Tests skip until `catalog/` exists.
-4. Open two Claude Code sessions (worktrees work well): run `/arch:spike-a-catalog-source-of-truth` in one and
-   `/arch:spike-b-localstack-buses-end-to-end` in the other, in plan mode first. Approve the task lists, let them run,
-   review `findings.md` as it fills in.
-5. When both findings say green, one more session: `/arch:spike-c-join-catalog-to-buses`.
-
-## Things to decide before you start (two minutes each)
-
-- EventCatalog version to pin (A) and LocalStack image tag to pin (B). Write both into `findings.md` headers.
-- Whether the input-transformer-on-bus-target question (ADR-006) is answered in B with LocalStack only, or also
-  against a real sandbox. LocalStack passing is not proof; the prompt says so.
-
-## What "done" looks like
-
-Three `findings.md` files, a recommendation (go / go-with-changes / stop), and a list of ADR triggers or roadmap
-edits with the spike as evidence. Nothing from the spikes is kept except tests that still describe desired behaviour.
+The spikes are kept as they finished and their findings are cited by ADR-021 to ADR-025. The code they proved moved to [`platform/`](platform/README.md); the spikes import it, so their suites stay its regression tests. See [`spikes/README.md`](spikes/README.md) to run them again.

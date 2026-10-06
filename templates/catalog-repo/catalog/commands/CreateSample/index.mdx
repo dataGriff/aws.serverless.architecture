@@ -1,0 +1,24 @@
+---
+id: CreateSample
+name: Create sample
+version: 1.0.0
+summary: >-
+  Command. POST /v1/samples on the sample API; requires an Idempotency-Key; emits
+  SampleCreated.v1.
+owners:
+  - sample-team
+badges:
+  - content: command
+    backgroundColor: blue
+    textColor: blue
+x-operation: POST /v1/samples
+x-operation-id: CreateSample
+x-message-type: command
+x-openapi: services/sample-service/openapi.yaml
+---
+
+Mirrors `operationId: CreateSample` in the sample OpenAPI, which carries `x-eventcatalog-message-type: command`. The check `check_openapi_operations_have_pages` keeps the spec and this page in step; the step-2 generator emits this page.
+
+<CustomProperties title="Operation" />
+
+<NodeGraph />

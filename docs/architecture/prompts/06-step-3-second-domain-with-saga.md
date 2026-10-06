@@ -1,5 +1,7 @@
 ---
 step: 3
+when: >-
+  Use for roadmap step 3 when adding the second domain (payments) entirely through catalog PRs: an external webhook route behind WAF, the saga module driving authorise → capture → settle, subscribers both ways, PII arriving from outside. Triggers on 'second domain', 'saga', 'payments domain', 'webhook ingest'.
 title: "Step 3 · Payments domain, with a saga and an external webhook"
 read_first:
   - docs/architecture/roadmap.md (Step 3)
@@ -11,20 +13,11 @@ read_first:
 
 # Step 3 · Payments domain, with a saga and an external webhook
 
-## Before you start
+{{> before-you-start}}
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+{{> hard-rules}}
 
-## Hard rules
-
-- Everything in an account is generated from the catalog. Never hand-edit a rule, bucket, route, role, alarm or contract; change the catalog or the generator.
-- Do not introduce Athena, Glue, Iceberg, Kinesis, Temporal, Step Functions outside the saga module, a central gateway, CloudFront, a Schema Registry or a data platform account. If you believe an ADR trigger has fired, stop and run `prompts/10-evaluate-a-trigger.md` instead.
-- PII: every schema field carries `x-pii`. `indirect` travels in clear, `direct` is encrypted per subject in public events through the subject-key service, `special` never enters an event.
-- Facts are events. One synchronous hop between domains, through a generated client. Never another domain's database or bucket.
-- Tests before infrastructure: L0 contract (no infra) → L1 domain-local (LocalStack + pinned `platform-local`) → L2 platform. Never depend on another domain's code or a shared environment.
-- Small commits with the ADR or doc section they implement named in the message. If a decision cannot be undone and the docs do not settle it, stop and ask, giving the options and your recommendation.
-
-**Read first:** `docs/architecture/roadmap.md (Step 3)` · `docs/architecture/adr/ADR-003-orchestration.md` · `docs/architecture/adr/ADR-005-api-hosting.md` · `docs/architecture/adr/ADR-007-pii-in-events.md` · `docs/architecture/conventions.md`
+**Read first:** {{read_first}}
 
 ## Goal
 
@@ -45,6 +38,4 @@ The second domain, added entirely through catalog PRs and the generator, exercis
 - A webhook with a bad signature is rejected before the handler; the WAF association exists on the external route in the generated API body.
 - The routing test passes and no generated subscriber or stub rule targets a domain bus.
 
-## Report back
-
-Finish with: what was built (paths); each exit criterion with its evidence (test names and output, plan summaries, screenshots of the catalog where relevant); what you deliberately did not do and why; any ADR trigger you think is close to firing.
+{{> report-back}}

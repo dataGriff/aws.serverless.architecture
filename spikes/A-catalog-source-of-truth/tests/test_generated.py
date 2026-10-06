@@ -8,9 +8,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+PLATFORM = ROOT.parents[1] / "platform"          # the tooling moved out of the spike; this suite is its proof
 CATALOG = ROOT / "catalog"
-GEN = ROOT / "catalog-gen" / "catalog_gen.py"
-CHECKS = ROOT / "checks"
+GEN = PLATFORM / "catalog-gen" / "catalog_gen.py"
+CHECKS = PLATFORM / "checks"
 FIXTURES = ROOT / "fixtures"
 GOLDEN = ROOT / "tests" / "golden"
 pytestmark = pytest.mark.skipif(not CATALOG.exists(), reason="create the catalog first (see README)")

@@ -4,7 +4,7 @@ One self-contained prompt per part of the roadmap, plus the recurring operations
 
 ## How to use
 
-- Paste a prompt into a fresh Claude Code session at the repo root, or install the copies under `.claude/commands/arch/` and run them as `/arch:<name>` (for example `/arch:step-1-walking-skeleton`).
+- Run a prompt as `/arch:<name>` (for example `/arch:step-1-walking-skeleton`), or paste the installed copy from `.claude/commands/arch/` into a fresh Claude Code session at the repo root. The installed copy is the self-contained one: the source prompt includes the shared blocks from `_partials/` by reference.
 - Run the first pass in plan mode and review the task list before letting it build. One prompt per session; a step may need several sessions — the task list and the report-back carry state between them.
 - Paste the prompt's **Report back** section into the PR description. Reviewers use `11-architecture-review.md`.
 - If a prompt would need a service the decisions table does not permit, the agent is told to stop and run `10-evaluate-a-trigger.md`. That is the intended behaviour, not a failure.
@@ -32,7 +32,7 @@ One self-contained prompt per part of the roadmap, plus the recurring operations
 
 ## Prompt conventions
 
-Every prompt has the same shape: **Before you start** (what to read), **Hard rules** (identical everywhere), **Goal**, **Build / Steps / Scope**, **Done when** (the exit criteria), **Report back**. Test names in a prompt are part of the contract: an agent that renames them has changed the acceptance criteria. When a step's roadmap entry changes, change its prompt in the same PR.
+Every prompt has the same shape: **Before you start** (what to read), **Hard rules** (identical everywhere), **Goal**, **Build / Steps / Scope**, **Done when** (the exit criteria), **Report back**. The three shared blocks live once under [`_partials/`](_partials/README.md) and are inlined by `task prompts`; the **Read first** line is rendered from the prompt's frontmatter. A rule change is one edit under `_partials/` plus `task prompts`. Test names in a prompt are part of the contract: an agent that renames them has changed the acceptance criteria. When a step's roadmap entry changes, change its prompt in the same PR. `task prompts:check` fails when a prompt names a superseded ADR or uses vocabulary the spikes retired (see `install-commands.py`); the spike prompts that ran under the old ADRs are marked `historical: true` and kept as they ran.
 
 ## Spikes (before day one)
 

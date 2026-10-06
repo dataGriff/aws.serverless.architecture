@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(task *)",
+      "Bash(uv run *)",
+      "Bash(uvx *)",
+      "Bash(npx *)",
+      "Bash(npm ci)",
+      "Bash(npm run *)",
+      "Bash(python3 docs/architecture/prompts/install-commands.py *)",
+      "Bash(python3 docs/architecture/adr/build-decisions.py *)",
+      "Bash(terraform plan *)",
+      "Bash(terraform validate *)",
+      "Bash(terraform output *)",
+      "Bash(terraform -chdir=* plan *)",
+      "Bash(terraform -chdir=* output *)",
+      "Bash(docker compose *)",
+      "Bash(aws --endpoint-url=http://localhost:4566 *)",
+      "Bash(mise *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)"
+    ]
+  }
+}

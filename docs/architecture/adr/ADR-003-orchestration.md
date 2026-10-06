@@ -1,6 +1,9 @@
 ---
 id: ADR-003
 title: "Orchestration"
+concern: "Orchestration"
+decision: >-
+  No orchestrator platform. Choreography via events; a stateful process is a saga *inside the owning domain*, built from the platform's **saga module** (state table + Scheduler, or a Step Functions template) that ships on day one because payments needs it on day one. It speaks only contracts.
 status: accepted
 date: 2026-10-04
 reviewed: changed-after-review
@@ -20,4 +23,4 @@ Several sagas + portability → Temporal, per domain or as a process-manager con
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

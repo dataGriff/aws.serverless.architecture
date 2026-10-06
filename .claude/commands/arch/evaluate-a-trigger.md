@@ -6,7 +6,7 @@ description: "Only when · Evaluate whether an ADR trigger has fired"
 
 ## Before you start
 
-Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. Work from a task list and keep it updated.
+Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/architecture/decisions.md`, then the files under **Read first** below. Load nothing else until a task needs it. When a task needs what the catalog says (which services send or receive an event, which fields are `direct`, who owns what, what a change would break), ask the catalog rather than grepping it: through its MCP server when one is configured (`AGENTS.md`, *Querying the catalog*), otherwise through the published `llms.txt` and `schemas.txt`; open catalog files only to edit them. Work from a task list and keep it updated.
 
 ## Hard rules
 
@@ -28,7 +28,7 @@ Decide, with evidence, whether a request or symptom is one of the named triggers
 1. Restate the request or symptom in one sentence. Identify the ADR(s) it touches.
 2. Quote the ADR's `revisit_when` entries. For each, state whether it has fired and the evidence: metrics, costs, a failed exit criterion, a regulatory requirement, a measured limit. "It would be nicer" is not evidence.
 3. If none has fired: answer with the cheapest way to meet the need inside current defaults (a read model, a FIFO target, a transformer, a reader role, a contract overlay), and stop.
-4. If one has fired: write `adr/ADR-NNN-<slug>.md` with `status: proposed`, `supersedes: ADR-xxx`, the evidence, what changes, what explicitly does not change (buckets, contracts, conventions, tests), the new trade-offs, and an implementation plan that reuses the same generated files and contracts. Update `decisions.md` in the same PR with the new default and its own `revisit_when`.
+4. If one has fired: copy `docs/architecture/adr/TEMPLATE.md` to `adr/ADR-NNN-<slug>.md` and fill it in: `status: proposed`, `supersedes: ADR-xxx`, the evidence, what changes, what explicitly does not change (buckets, contracts, conventions, tests), the new trade-offs, and an implementation plan that reuses the same generated files and contracts. Add a CHANGELOG line when it is accepted. Give it `concern:` and `decision:` in its frontmatter and its own `revisit_when`, then `task adr:build` renders its row into `decisions.md` in the same PR (`task adr:check` must pass).
 5. Never implement the change in the same PR as the ADR.
 
 ## Output

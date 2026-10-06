@@ -1,6 +1,9 @@
 ---
 id: ADR-025
 title: "Testing — what LocalStack proves, what only the sandbox can"
+concern: "Testing"
+decision: >-
+  Contract tests with no infra; domain-local on **licensed LocalStack with `ENFORCE_IAM=1`** against a **Classic stub central** whose rules target the consumer queues (the subscriber's shape, one hop); platform tests with synthetic events in a **real AWS sandbox, nightly and per branch**. **Sandbox-only, never trusted from LocalStack:** hop limits and loop detection, DLQ records, resource-policy/IAM evaluation, replay, Firehose behaviour, the Custom Event Bus. Such tests carry a `sandbox` marker; LocalStack divergences are `xfail(strict=True)` so emulator fixes surface. One smoke event and one smoke call per domain in prod.
 status: accepted
 supersedes: ADR-019
 date: 2026-10-04
@@ -57,4 +60,4 @@ No shared integration environment; no test depends on another domain's code; `pl
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.

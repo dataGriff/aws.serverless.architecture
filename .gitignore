@@ -19,6 +19,15 @@ spikes/A-catalog-source-of-truth/catalog/.eventcatalog-core/
 spikes/A-catalog-source-of-truth/catalog/dist/
 spikes/A-catalog-source-of-truth/generated/
 
+# platform tooling and templates
+platform/terraform/modules/bus-s3-archiver/.build/
+templates/catalog-repo/generated/
+templates/catalog-repo/catalog/node_modules/
+templates/catalog-repo/catalog/.eventcatalog-core/
+templates/catalog-repo/catalog/dist/
+templates/domain-repo/.catalog/
+templates/domain-repo/generated/
+
 # claude worktrees
 .claude/worktrees/
 

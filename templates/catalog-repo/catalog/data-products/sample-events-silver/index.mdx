@@ -1,0 +1,25 @@
+---
+id: sample-events-silver
+name: Sample events · silver
+version: 1.0.0
+summary: One Parquet table per public sample event version, in the sample silver bucket, each with a generated ODCS contract.
+owners:
+  - sample-team
+inputs:
+  - id: SampleCreated
+    version: 1.0.0
+    type: event
+outputs:
+  - id: sample-sample-created-v1
+    type: container
+    contract:
+      path: ../../events/SampleCreated/odcs.yaml
+      name: SampleCreated.v1 ODCS
+      type: odcs
+x-bucket: sample-events-silver
+x-reader-role: sample-reader
+---
+
+Each table is `silver/{source}/{detail-type}/dt=YYYY-MM-DD/hour=HH/`. The contract is generated from the event schema and `data-product.yaml`; changing the generated part means changing the event schema.
+
+<NodeGraph />

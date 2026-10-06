@@ -1,6 +1,9 @@
 ---
 id: ADR-020
 title: "DR"
+concern: "DR"
+decision: >-
+  Single region: **eu-west-1** (Ireland; London has no Custom Event Bus endpoint). Bronze is versioned and replicated cross-region in prod; archive RPO is the Firehose buffer (≤ 60 s); the bus itself is rebuilt from IaC. Stated RTO: region recovery.
 status: accepted
 date: 2026-10-04
 reviewed: changed-after-review
@@ -20,4 +23,4 @@ RTO shorter than a region incident → EventBridge global endpoints with replica
 
 ## How to change this
 
-Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Update `decisions.md` in the same PR. Generated IaC follows the catalog, never the other way round.
+Open a PR that supersedes this ADR with the trigger named in `revisit_when` and the evidence that it fired. Set its `concern:`, `decision:` and `revisit_when` and run `task adr:build` in the same PR. Generated IaC follows the catalog, never the other way round.
