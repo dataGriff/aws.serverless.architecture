@@ -2,7 +2,6 @@ version: "3"
 vars:
   PLATFORM: "{{.TASKFILE_DIR}}/../../platform"
   BASE: '{{.BASE | default ""}}'
-  PYTEST: uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q tests
 tasks:
   default:
     cmds: [task --list]
@@ -49,22 +48,12 @@ tasks:
     desc: Lint the generated ODCS contracts (ODCS v3.0.2 JSON Schema via datacontract-cli)
     cmds:
       - for f in $(find catalog/events -name odcs.yaml | sort); do uvx --from datacontract-cli datacontract lint $f || exit 1; done
-  test:
-    desc: Behavioural tests (includes the slow spectral/odcs ones)
-    cmds: ["{{.PYTEST}}"]
-  test:fast:
-    desc: Behavioural tests without the external linters
-    cmds: ['{{.PYTEST}} -m "not slow"']
-  test:update-golden:
-    desc: Accept the current generator output as the golden snapshot
-    cmds: ["UPDATE_GOLDEN=1 {{.PYTEST}} -k golden"]
   all:
-    desc: Everything a catalog PR runs, in order
+    desc: Everything a catalog PR runs, in order (the generator's own tests are `task platform:test` at the root)
     cmds:
       - task: gen
       - task: gen:check
       - task: checks
       - task: spectral
       - task: odcs:lint
-      - task: test
       - task: catalog:build:clean

@@ -1,0 +1,27 @@
+---
+id: payments-sub.OrderPlaced.v1
+name: payments subscriber · OrderPlaced.v1
+version: 1.0.0
+summary: 'Subscriber in the payments account on central-bus for OrderPlaced.v1: filter, retry 185/24h, DLQ, delivers to payment-service.'
+owners:
+- payments-team
+address: arn:aws:events:{region}:{payments-account}:subscriber/payments-order-placed
+protocols:
+- eventbridge
+deliveryGuarantee: at-least-once
+x-generated: catalog-gen
+x-physical-channel: central-bus
+x-detail-type: OrderPlaced.v1
+x-subscriber: subscribers/payments-order-placed.json
+x-filter: '{"detail-type":["OrderPlaced.v1"],"source":[{"prefix":"orders."}]}'
+x-retry-policy:
+  maximumRetryAttempts: 185
+  maximumEventAgeInSeconds: 86400
+x-dead-letter-queue: payments-order-placed-dlq
+x-targets:
+- payment-service
+---
+
+The payments domain's subscriber on the physical bus `central-bus` for `OrderPlaced.v1` (ADR-021), fed by [[channel|central-bus.OrderPlaced.v1]]. Generated from `receives[]`: the filter is the Classic consumer pattern, delivery goes straight to the consumer's own target with retries and a DLQ. Never targets a domain bus.
+
+<ChannelInformation />

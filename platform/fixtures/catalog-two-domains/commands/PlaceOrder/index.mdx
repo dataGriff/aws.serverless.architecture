@@ -1,0 +1,24 @@
+---
+id: PlaceOrder
+name: Place order
+version: 1.0.0
+summary: >-
+  Command. POST /v1/orders on the orders API; requires an Idempotency-Key; emits
+  OrderPlaced.v1.
+owners:
+  - orders-team
+badges:
+  - content: command
+    backgroundColor: blue
+    textColor: blue
+x-operation: POST /v1/orders
+x-operation-id: PlaceOrder
+x-message-type: command
+x-openapi: services/order-service/openapi.yaml
+---
+
+Mirrors `operationId: PlaceOrder` in the orders OpenAPI, which carries `x-eventcatalog-message-type: command`. The check `check_openapi_operations_have_pages` keeps the spec and this page in step; the day-one generator should emit this page instead.
+
+<CustomProperties title="Operation" />
+
+<NodeGraph />

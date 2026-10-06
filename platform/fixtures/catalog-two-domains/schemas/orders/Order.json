@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/schemas/orders/Order.json",
+  "title": "Order",
+  "description": "Entity owned by the orders domain. Internal events and the orders API carry it; public events carry its id.",
+  "type": "object",
+  "x-kind": "entity",
+  "properties": {
+    "orderId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "customerId": { "type": "string", "x-pii": "indirect" },
+    "customerEmail": { "type": "string", "format": "email", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["payments"] },
+    "status": { "type": "string", "enum": ["placed", "paid", "cancelled"], "x-pii": "none" },
+    "total": { "$ref": "../Money.json", "x-pii": "none" },
+    "shippingAddress": { "$ref": "../Address.json", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "placedAt": { "type": "string", "format": "date-time", "x-pii": "none" }
+  },
+  "required": ["orderId", "customerId", "status", "total"],
+  "additionalProperties": false
+}

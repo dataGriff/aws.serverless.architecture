@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/schemas/Envelope.json",
+  "title": "Envelope",
+  "description": "Fields every event carries inside detail (conventions.md). The generator composes this with each payload schema.",
+  "type": "object",
+  "x-kind": "value-object",
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid", "x-pii": "none" },
+    "occurredAt": { "type": "string", "format": "date-time", "x-pii": "none" },
+    "replay": { "type": "boolean", "x-pii": "none" },
+    "correlationId": { "type": "string", "x-pii": "none" },
+    "causationId": { "type": "string", "x-pii": "none" },
+    "aggregateId": { "type": "string", "x-pii": "indirect" },
+    "aggregateVersion": { "type": "integer", "minimum": 0, "x-pii": "none" }
+  },
+  "required": ["eventId", "occurredAt", "replay", "aggregateId", "aggregateVersion"]
+}

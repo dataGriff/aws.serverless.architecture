@@ -6,7 +6,7 @@ Live site: https://datagriff.github.io/aws.serverless.architecture/ (published b
 
 ```sh
 task catalog:install     # npm ci inside catalog/ (Node 22 via this directory's .mise.toml)
-task all                 # gen → gen:check → checks → spectral → odcs:lint → test → catalog:build:clean
+task all                 # gen → gen:check → checks → spectral → odcs:lint → catalog:build:clean  (tests: task platform:test at the root)
 task catalog:dev         # look at the site on http://localhost:3000
 ```
 
@@ -17,8 +17,7 @@ task catalog:dev         # look at the site on http://localhost:3000
 | `catalog/` | EventCatalog 4.12.3 site. Hand-written: domains, services (+ `openapi.yaml`), events (`index.mdx`, `schema.json`, `examples/`, `data-product.yaml`), commands, queries, the `orders-api` channel, teams, data products, `schemas/`, `CODEOWNERS`. Generated and committed: `events/*/odcs.yaml` and the logical channel pages `channels/{bus}.{DetailType}/`, `channels/central-bus.{DetailType}/`, `channels/{domain}-sub.{DetailType}/`. |
 | `../../platform/catalog-gen/catalog_gen.py` | `build` / `check` / `explain`. Deterministic; writes `generated/local/` (rules, subscribers, routing map, validation bundles, Parquet schemas, manifest; gitignored) plus the ODCS and channel pages inside the catalog. Written here, moved to `platform/` once proven; the Taskfile points at it. |
 | `../../platform/checks/` | `run_checks.py` (ten checks), `x-pii.metaschema.json`, `schema_diff.py`, `spectral.yaml`. Moved with the generator. |
-| `tests/` | 27 behavioural tests, the generator's and the checks' proof against this catalog; `tests/golden/` is the committed snapshot of the generator output (`task test:update-golden` to accept a change). |
-| `fixtures/checks/<check>/` | Files overlaid on a copy of the catalog so that exactly that check fails. `fixtures/schema-diff`, `fixtures/spectral`, `fixtures/odcs` serve the standalone linters. |
+| `../../platform/catalog-gen/tests/` | The generator's and the checks' behavioural tests, golden snapshot and per-check fixtures, moved with the tooling; they run against `platform/fixtures/catalog-two-domains`, a content snapshot of this catalog that `task platform:fixture:check` keeps identical. |
 | (CI) | The same Taskfile tasks run on every pull request from the root `.github/workflows/ci.yml` (job `platform`). The specimen `catalog-pr.yml` that used to sit here became `templates/catalog-repo/.github/workflows/catalog-pr.yml`, live once that template is lifted into its own repository. |
 
 ## Conventions the spike settled on

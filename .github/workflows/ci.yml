@@ -51,8 +51,8 @@ jobs:
           fi
       - run: task spectral
       - run: task odcs:lint
-      - name: Generator and checks behavioural tests (golden snapshot, fixtures)
-        run: task test
+      - name: The generator's and the checks' tests (golden snapshot, one fixture per check), and the fixture matches this catalog
+        run: task -d ../../platform fixture:check && task -d ../../platform test
       - name: Site builds and the build does not rewrite the catalog
         run: task catalog:build:clean
   templates:

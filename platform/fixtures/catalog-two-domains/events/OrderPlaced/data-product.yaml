@@ -1,0 +1,36 @@
+# Hand-written overlay for the generated ODCS contract of OrderPlaced.v1 (data-contracts.md).
+# Only these keys are allowed: description, slaProperties, team, quality, terms, customProperties, tags,
+# support, price, authoritativeDefinitions. Anything the generator owns (id, schema, servers, roles...) fails the build.
+description:
+  purpose: Analytical copy of every public OrderPlaced.v1 event, one row per eventId.
+  limitations: customerEmail is a ciphertext envelope inside detail; request a decryptor grant via the catalog.
+  usage: Query the DuckDB view silver_orders_order_placed_v1; always filter on dt.
+slaProperties:
+  - property: latency
+    value: 3
+    unit: h
+    element: orders_order_placed_v1.occurred_at
+  - property: frequency
+    value: 1
+    unit: h
+  - property: retention
+    value: 2
+    unit: y
+team:
+  - username: orders-team
+    role: owner
+  - username: finance-analytics
+    role: consumer
+quality:
+  - type: custom
+    engine: platform-checks
+    implementation: reconciliation(outbox=orders, tolerance=0.001)
+  - type: sql
+    query: SELECT count(*) FROM ${object} WHERE d_total < 0
+    mustBe: 0
+tags:
+  - orders
+  - revenue
+customProperties:
+  - property: intendedConsumers
+    value: finance-analytics, payments read model

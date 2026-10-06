@@ -7,14 +7,14 @@ import json, os, shutil, subprocess, sys
 from pathlib import Path
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-PLATFORM = ROOT.parents[1] / "platform"          # the tooling moved out of the spike; this suite is its proof
-CATALOG = ROOT / "catalog"
-GEN = PLATFORM / "catalog-gen" / "catalog_gen.py"
-CHECKS = PLATFORM / "checks"
-FIXTURES = ROOT / "fixtures"
-GOLDEN = ROOT / "tests" / "golden"
-pytestmark = pytest.mark.skipif(not CATALOG.exists(), reason="create the catalog first (see README)")
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]                                   # platform/
+CATALOG = ROOT / "fixtures" / "catalog-two-domains"      # the worked example's content, a snapshot of spikes/A-…/catalog (task platform:fixture:check)
+GEN = ROOT / "catalog-gen" / "catalog_gen.py"
+CHECKS = ROOT / "checks"
+FIXTURES = HERE / "fixtures"
+GOLDEN = HERE / "golden"
+assert CATALOG.exists(), f"fixture catalog missing at {CATALOG}"
 
 sys.path.insert(0, str(CHECKS))
 import run_checks  # noqa: E402

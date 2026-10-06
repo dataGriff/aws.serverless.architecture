@@ -1,9 +1,10 @@
 version: "3"
 includes:
-  a: { taskfile: spikes/A-catalog-source-of-truth/Taskfile.yml, dir: spikes/A-catalog-source-of-truth }
-  b: { taskfile: spikes/B-localstack-buses-end-to-end/Taskfile.yml, dir: spikes/B-localstack-buses-end-to-end }
-  c: { taskfile: spikes/C-join/Taskfile.yml, dir: spikes/C-join }
-  d: { taskfile: spikes/D-custom-event-bus/Taskfile.yml, dir: spikes/D-custom-event-bus }
+  a: { taskfile: spikes/A-catalog-source-of-truth/Taskfile.yml, dir: spikes/A-catalog-source-of-truth, optional: true }   # the spikes are evidence; an adopter may remove them
+  b: { taskfile: spikes/B-localstack-buses-end-to-end/Taskfile.yml, dir: spikes/B-localstack-buses-end-to-end, optional: true }   # the spikes are evidence; an adopter may remove them
+  c: { taskfile: spikes/C-join/Taskfile.yml, dir: spikes/C-join, optional: true }   # the spikes are evidence; an adopter may remove them
+  d: { taskfile: spikes/D-custom-event-bus/Taskfile.yml, dir: spikes/D-custom-event-bus, optional: true }   # the spikes are evidence; an adopter may remove them
+  platform: { taskfile: platform/Taskfile.yml, dir: platform }
 tasks:
   default: { cmds: [task --list-all] }
   doctor:

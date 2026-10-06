@@ -1,0 +1,26 @@
+---
+id: payments
+name: Payments
+version: 1.0.0
+summary: Captures funds for orders; owns the payments bus and the payments API.
+owners:
+  - payments-team
+services:
+  - id: payment-service
+    version: 1.0.0
+data-products:
+  - id: payments-events-silver
+x-source-prefix: payments.
+x-bus: payments-bus
+x-bronze-bucket: payments-events-bronze
+---
+
+## Boundary
+
+Every event from this domain has `source` prefixed `payments.`. Public events are forwarded to `central-bus`; events from other domains reach this domain only through its generated subscribers on `central-bus`, never through `payments-bus`.
+
+<CustomProperties title="Platform properties" />
+
+<NodeGraph />
+
+<MessageTable format="all" limit={20} />

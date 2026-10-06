@@ -1,0 +1,31 @@
+---
+id: order.aggregate.updated
+name: Order aggregate updated
+version: 1.0.0
+summary: Internal change feed of the Order aggregate for the orders domain's own projections. Never leaves the orders account.
+owners:
+  - orders-team
+schemaPath: schema.json
+badges:
+  - content: internal
+    backgroundColor: gray
+    textColor: gray
+x-visibility: internal
+x-audience: all
+x-source: orders.order-service
+x-pii:
+  order.customerEmail: direct
+  order.shippingAddress: direct
+---
+
+## Routing
+
+`detail-type` is `order.aggregate.updated.v1` on `orders-bus` only. Internal events may carry `direct` fields in clear inside the account; every copy is capped at 30 days (pii.md).
+
+<CustomProperties title="Platform properties" />
+
+## Payload
+
+<SchemaViewer file="schema.json" title="Payload schema (inside detail)" />
+
+<NodeGraph />

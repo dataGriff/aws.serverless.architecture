@@ -31,7 +31,7 @@ The same six rules are the `hard-rules` partial every prompt carries; `task prom
 ## Running things
 
 - `task` at the root lists everything. `task doctor` checks the toolchain. `task prompts` regenerates the installed commands and skills; `task prompts:check` lints the prompts. `task localise:report` shows which placeholders are still in place.
-- Spike A (`task -d spikes/A-catalog-source-of-truth all`) needs no Docker and proves the generator and the checks in about two minutes. Spikes B and C need Docker and licensed LocalStack (`LOCALSTACK_AUTH_TOKEN` in your shell, never in the repo). Spike D needs a real AWS account and costs money.
+- `task platform:test` runs the generator's and the checks' suite with no Docker in under a minute; Spike A (`task -d spikes/A-catalog-source-of-truth all`) builds the worked-example site on top of it. Spikes B and C need Docker and licensed LocalStack (`LOCALSTACK_AUTH_TOKEN` in your shell, never in the repo). Spike D needs a real AWS account and costs money.
 - `terraform apply` and `terraform destroy` against a real account are never run by an agent on its own; the Taskfiles run them against LocalStack, and the step-4 prompt says when a person does it for real.
 - Test names in a prompt are the acceptance criteria. Do not rename them.
 

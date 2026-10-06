@@ -1,0 +1,29 @@
+{
+  "version": "0",
+  "id": "3b4c5d6e-7f8a-4b9c-8d0e-1f2a3b4c5d6e",
+  "detail-type": "order.aggregate.updated.v1",
+  "source": "orders.order-service",
+  "account": "111111111111",
+  "time": "2026-10-04T09:15:10Z",
+  "region": "eu-west-2",
+  "resources": [],
+  "detail": {
+    "eventId": "9c0d1e2f-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+    "occurredAt": "2026-10-04T09:15:09.500Z",
+    "replay": false,
+    "correlationId": "req-7f3a2b1c",
+    "causationId": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+    "aggregateId": "ord_01J9Q3Z8K2M4N6P8R0T2V4X6Y8",
+    "aggregateVersion": 2,
+    "order": {
+      "orderId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "customerId": "cus_01J9Q3Y1A2B3C4D5E6F7G8H9J0",
+      "customerEmail": "jo.bloggs@example.com",
+      "status": "paid",
+      "total": { "amount": "42.50", "currency": "GBP" },
+      "shippingAddress": { "line1": "1 High Street", "city": "Cardiff", "postcode": "CF10 1AA", "postcodeDistrict": "CF10", "country": "GB" },
+      "placedAt": "2026-10-04T09:15:01.700Z"
+    },
+    "changedFields": ["status"]
+  }
+}
