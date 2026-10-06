@@ -14,7 +14,7 @@ What a platform team owns and every catalog and domain repo consumes. Written in
 
 ## Using it from another repo
 
-Pin it. A catalog repo or a domain repo references this directory by a tag (git submodule, a vendored copy, or a checkout the Taskfile's `PLATFORM` variable points at); `templates/catalog-repo/Taskfile.yml` and `templates/domain-repo/Taskfile.yml` show the variable. ADR-017: the generator is semver-pinned per account; a bump is a PR.
+Pin it. A catalog repo or a domain repo names a tag of this repository in its `pins.yaml` and runs `task platform:checkout`, which clones the repository at that tag into `.platform/` and uses `.platform/platform`; `PLATFORM=<dir>` overrides. Tags are listed in the [CHANGELOG](../CHANGELOG.md), one section per release. ADR-017: the generator is semver-pinned per account; a bump is a PR.
 
 ```sh
 uv run platform/catalog-gen/catalog_gen.py build   --catalog <catalog> --out generated/<env>
