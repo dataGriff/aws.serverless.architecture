@@ -1,0 +1,9 @@
+# Review ownership for the pattern. Until there are teams, the repository owner owns the decisions and the tooling;
+# platform.yaml names who should take each path over. The catalog-side CODEOWNERS (per domain) live inside each catalog.
+/docs/architecture/adr/     @dataGriff
+/docs/architecture/decisions.md @dataGriff
+/platform/                  @dataGriff
+/templates/                 @dataGriff
+/spikes/                    @dataGriff
+/.github/                   @dataGriff
+/.claude/settings.json      @dataGriff

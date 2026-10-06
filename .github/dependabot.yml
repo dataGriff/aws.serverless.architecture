@@ -1,0 +1,17 @@
+# Keeps the two catalog lockfiles (the worked example and the template, identical today) and the workflows' action
+# versions moving together. The Python tooling declares its dependencies inline (uv script metadata), which
+# Dependabot does not read; bump those by hand with the generator's tests as the gate.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups: { actions: { patterns: ["*"] } }
+  - package-ecosystem: npm
+    directory: /spikes/A-catalog-source-of-truth/catalog
+    schedule: { interval: weekly }
+    groups: { eventcatalog: { patterns: ["@eventcatalog/*"] } }
+  - package-ecosystem: npm
+    directory: /templates/catalog-repo/catalog
+    schedule: { interval: weekly }
+    groups: { eventcatalog: { patterns: ["@eventcatalog/*"] } }
