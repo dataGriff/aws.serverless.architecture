@@ -70,3 +70,25 @@ jobs:
           PLATFORM_CATALOG: ${{ github.workspace }}/templates/catalog-repo/catalog
           GENERATED: ${{ github.workspace }}/templates/catalog-repo/generated/local
         run: uv run --with boto3 --with pytest --with duckdb --with pyyaml --with jsonschema --with fastjsonschema pytest -q tests -m l0
+  templates-lifted:
+    name: templates run outside the monorepo, pinned to this commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
+      - name: Lift both templates beside the repository and pin the platform at this commit (what pins.yaml does with a tag)
+        run: |
+          lift=$RUNNER_TEMP/lift; mkdir -p "$lift"
+          cp -r templates/catalog-repo "$lift/catalog-repo"; cp -r templates/domain-repo "$lift/domain-repo"
+          for d in catalog-repo domain-repo; do
+            ( cd "$lift/$d" && git init -q && git add -A && git -c user.name=ci -c user.email=ci@ci commit -qm lift \
+              && mise trust --quiet && task platform:checkout REPO="$GITHUB_WORKSPACE" REF="$GITHUB_SHA" )
+          done
+      - name: catalog-repo, lifted — install, then everything a catalog PR runs
+        working-directory: ${{ runner.temp }}/lift/catalog-repo
+        run: task catalog:install && task all
+      - name: domain-repo, lifted — catalog pinned to the lifted catalog repo, generate, L0 suite
+        working-directory: ${{ runner.temp }}/lift/domain-repo
+        run: task catalog:checkout REPO="$RUNNER_TEMP/lift/catalog-repo" REF=HEAD && task gen && task test:l0

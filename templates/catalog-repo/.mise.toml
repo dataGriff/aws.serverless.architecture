@@ -1,2 +1,4 @@
 [tools]
-node = "22"
+task = "3"
+uv = "latest"
+node = "22"  # EventCatalog 4.12 (Astro) needs >= 22.12

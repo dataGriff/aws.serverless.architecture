@@ -9,9 +9,11 @@ env:
   PLATFORM_STATE_DIR: "{{.TASKFILE_DIR}}"
 vars:
   DOMAIN: sample
-  # In the platform repo these resolve inside the monorepo; in a lifted repo point PLATFORM at the pinned checkout
-  # (pins.yaml → platform.tag) and let `task catalog:checkout` populate .catalog/ from pins.yaml → catalog.tag.
-  PLATFORM: '{{.PLATFORM | default (printf "%s/../../platform" .TASKFILE_DIR)}}'
+  # Where the platform tooling is. Lifted into its own repository: `.platform/` is a checkout of the platform repository at
+  # the tag pins.yaml names (`task platform:checkout`), so the tooling is at .platform/platform. Inside the platform
+  # monorepo: ../../platform. `task <x> PLATFORM=<dir>` overrides either.
+  PLATFORM:
+    sh: 'if [ -d "{{.TASKFILE_DIR}}/.platform/platform" ]; then echo "{{.TASKFILE_DIR}}/.platform/platform"; else echo "{{.TASKFILE_DIR}}/../../platform"; fi'
   CATALOG: '{{.CATALOG | default (printf "%s/.catalog/catalog" .TASKFILE_DIR)}}'
   TF_DIR: terraform/envs/local
   GENERATED: "{{.TASKFILE_DIR}}/generated/local"
@@ -19,13 +21,23 @@ vars:
 tasks:
   default:
     cmds: [task --list]
-  catalog:checkout:
-    desc: Check out the catalog at the pinned tag into .catalog/ (pins.yaml). In the platform monorepo, symlink the template catalog instead.
+  platform:checkout:
+    desc: "Check out the platform repository at the tag pins.yaml names into .platform/ (REPO=… REF=… override the pins)"
     cmds:
       - |
-        repo=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['catalog']['repo'])")
-        tag=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['catalog']['tag'])")
-        rm -rf .catalog && git clone --depth 1 --branch "$tag" "$repo" .catalog
+        repo="{{.REPO}}"; ref="{{.REF}}"
+        [ -n "$repo" ] || repo=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['platform']['repo'])")
+        [ -n "$ref" ]  || ref=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['platform']['tag'])")
+        rm -rf .platform && git clone --quiet "$repo" .platform && git -C .platform checkout --quiet "$ref"
+        echo "platform tooling at .platform/platform ($ref)"
+  catalog:checkout:
+    desc: "Check out the catalog repository at the tag pins.yaml names into .catalog/ (REPO=… REF=… override the pins)"
+    cmds:
+      - |
+        repo="{{.REPO}}"; ref="{{.REF}}"
+        [ -n "$repo" ] || repo=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['catalog']['repo'])")
+        [ -n "$ref" ]  || ref=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['catalog']['tag'])")
+        rm -rf .catalog && git clone --quiet "$repo" .catalog && git -C .catalog checkout --quiet "$ref"
   up:
     desc: "Start LocalStack and wait (LICENSED=true → the pinned licensed image with ENFORCE_IAM=1; needs LOCALSTACK_AUTH_TOKEN in your shell, never in the repo)"
     cmds:

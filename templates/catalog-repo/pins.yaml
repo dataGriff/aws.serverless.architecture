@@ -1,0 +1,5 @@
+# The platform tooling this catalog is generated and checked with (ADR-017: semver-pinned; a bump is a PR).
+# `task platform:checkout` clones it to .platform/ at this tag; the Taskfile then uses .platform/platform.
+platform:
+  repo: https://github.com/dataGriff/aws.serverless.architecture   # platform.yaml: catalog_site_url names the same repository
+  tag: v0.1.0
