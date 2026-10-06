@@ -26,7 +26,7 @@ Turn the architecture docs into this organisation's ratified baseline, and make 
 
 ## Scope
 
-1. **Localise, don't redesign.** Work through `platform.yaml` at the repo root: it names every placeholder (DNS suffix, schema `$id` base, organisation name, owner emails, the IdP, the sandbox account, the region) and where each is used. Set each `value`, replace the placeholder text wherever `task localise:report` shows it, and leave `orders`/`payments` alone — they are the worked example and are replaced by onboarding real domains, not by search-and-replace. If a value is not in the repo, ask — do not invent organisational facts. The region is a decision (ADR-020, ADR-021), not a free parameter. Set each ADR to `status: accepted` with today's date and the names of who ratified it. If a default has to change, do not edit the ADR: write a superseding ADR using `prompts/10-evaluate-a-trigger.md`.
+1. **Localise, don't redesign.** Work through `platform.yaml` at the repo root: it names every placeholder (DNS suffix, schema `$id` base, organisation name, owner emails, the IdP, the sandbox account, the region) and where each is used. Set each `value`, replace the placeholder text wherever `task localise:report` shows it, and leave `orders`/`payments` alone — they are the worked example and are replaced by onboarding real domains, not by search-and-replace. If a value is not in the repo, ask — do not invent organisational facts. The region is a decision (ADR-020, ADR-021), not a free parameter. Set each ADR to `status: accepted` with today's date, and record who ratified it in `CHANGELOG.md` (the ADR frontmatter has no ratifier field; `adr/TEMPLATE.md` is the shape of any new ADR). If a default has to change, do not edit the ADR: write a superseding ADR using `prompts/10-evaluate-a-trigger.md`.
 2. **Encode the conventions** under `conventions/`:
    - `envelope.schema.json` — JSON Schema for the `detail` envelope (`eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`).
    - `x-pii.metaschema.json` — a meta-schema that rejects any property without `x-pii` and restricts it to `none | indirect | direct | special`; plus `x-external` boolean on API operations.
@@ -34,7 +34,7 @@ Turn the architecture docs into this organisation's ratified baseline, and make 
    - `names.md` — bus, bucket, subdomain, role and stream names with one example each.
    - `pii-classes.md` — the classification table from `pii.md` with examples drawn from this business, reviewed by whoever owns data protection.
 3. **Quotas.** `scripts/check-quotas.sh` that reads EventBridge PutEvents, invocation and rules-per-bus quotas for the region via `aws service-quotas`, prints current vs the estimate in `roadmap.md`, and drafts the raise requests.
-4. **Trade-offs** recorded as an appendix ADR (`ADR-000-accepted-trade-offs.md`) so nobody has to rediscover them.
+4. **Trade-offs** recorded as an appendix ADR (`ADR-000-accepted-trade-offs.md`, from `adr/TEMPLATE.md`, `status: accepted`, with a `concern:` and `decision:` so it renders as a row) so nobody has to rediscover them.
 
 ## Done when
 

@@ -28,7 +28,7 @@ Decide, with evidence, whether a request or symptom is one of the named triggers
 1. Restate the request or symptom in one sentence. Identify the ADR(s) it touches.
 2. Quote the ADR's `revisit_when` entries. For each, state whether it has fired and the evidence: metrics, costs, a failed exit criterion, a regulatory requirement, a measured limit. "It would be nicer" is not evidence.
 3. If none has fired: answer with the cheapest way to meet the need inside current defaults (a read model, a FIFO target, a transformer, a reader role, a contract overlay), and stop.
-4. If one has fired: write `adr/ADR-NNN-<slug>.md` with `status: proposed`, `supersedes: ADR-xxx`, the evidence, what changes, what explicitly does not change (buckets, contracts, conventions, tests), the new trade-offs, and an implementation plan that reuses the same generated files and contracts. Give it `concern:` and `decision:` in its frontmatter and its own `revisit_when`, then `task adr:build` renders its row into `decisions.md` in the same PR (`task adr:check` must pass).
+4. If one has fired: copy `docs/architecture/adr/TEMPLATE.md` to `adr/ADR-NNN-<slug>.md` and fill it in: `status: proposed`, `supersedes: ADR-xxx`, the evidence, what changes, what explicitly does not change (buckets, contracts, conventions, tests), the new trade-offs, and an implementation plan that reuses the same generated files and contracts. Add a CHANGELOG line when it is accepted. Give it `concern:` and `decision:` in its frontmatter and its own `revisit_when`, then `task adr:build` renders its row into `decisions.md` in the same PR (`task adr:check` must pass).
 5. Never implement the change in the same PR as the ADR.
 
 ## Output

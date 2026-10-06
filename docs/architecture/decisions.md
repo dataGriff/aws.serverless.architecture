@@ -31,5 +31,4 @@ One row per concern: the default we build, and the only triggers that reopen it.
 
 - A proposal that contradicts a default must cite the ADR and the trigger it claims has fired.
 - A proposal that adds a service (Athena, Glue, Iceberg, Kinesis, Temporal, CloudFront, a new account) must point at the row that permits it.
-- `reviewed: changed-after-review` rows were altered by the architecture critique on 2026-10-04; their previous defaults are not to be reintroduced without a new ADR.
-- ADR-021 to ADR-025 were accepted on 2026-10-04 on the evidence in `spikes/*/findings.md`, with two decisions taken at acceptance: the platform region is **eu-west-1** (no London endpoint for the Custom Event Bus) and domain-local tests use **licensed LocalStack**. The superseded ADRs stay in `adr/` marked `superseded` with `superseded_by`.
+- A new or superseding ADR starts from [`adr/TEMPLATE.md`](adr/TEMPLATE.md); a superseded ADR stays under `adr/` marked `superseded` with `superseded_by`, and its successor cites the evidence. When and by whom each was accepted is in the [CHANGELOG](../../CHANGELOG.md).
