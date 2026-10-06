@@ -72,6 +72,11 @@ Two domains are shown; every domain account has the same shape. `orders` and `pa
 
 | File | Load it when |
 | --- | --- |
+| [../../AGENTS.md](../../AGENTS.md) | starting any work with an agent: the four layers, what to read first, the hard rules, how to run things, how to query the catalog |
+| [../../platform.yaml](../../platform.yaml) | a value looks like a placeholder: which names are parameters to replace and which are the worked example |
+| [../../platform/](../../platform/README.md) | changing or using the tooling: the generator and its tests, the ten checks, the Terraform modules, the `platform_testing` harness |
+| [../../templates/](../../templates/catalog-repo/README.md) | starting the catalog repository or a domain repository: what to lift out and how it pins the tooling |
+| [../../CHANGELOG.md](../../CHANGELOG.md) | when and why a decision or the structure changed, and what a release tag contains |
 | [overview.html](overview.html) | sharing the architecture with someone new: one page with the diagrams (the shape, the one hop, the catalog pipeline, archive validation, PII), the decisions, testing layers, roadmap and spike evidence; open it in a browser |
 | [decisions.md](decisions.md) | proposing or reviewing any infrastructure, routing, data or API design change; checking whether a service is permitted |
 | [adr/](adr/) | challenging one decision — each ADR carries its `revisit_when` triggers in frontmatter; new ones start from [adr/TEMPLATE.md](adr/TEMPLATE.md) |
@@ -88,4 +93,4 @@ Two domains are shown; every domain account has the same shape. `orders` and `pa
 
 ## For AI agents
 
-Read `decisions.md` before proposing infrastructure. Do not introduce Athena, Glue, Iceberg, Kinesis, Temporal, Step Functions outside the saga module, a central gateway, CloudFront, a Schema Registry or a data platform account unless the matching ADR's `revisit_when` trigger is cited with evidence. Every rule, bucket, route, client, alarm, role and data contract is generated from the catalog: change the catalog or the generator, never the account by hand. PII in events is classified per field (`x-pii`): `indirect` in clear, `direct` encrypted per subject, `special` never — see `pii.md` before touching a payload. Any dataset consumed outside its domain has an ODCS contract first. One synchronous hop between domains, through a generated client.
+Start from [`AGENTS.md`](../../AGENTS.md) at the repository root: it carries the six hard rules every prompt includes (the `hard-rules` partial, kept identical by `task prompts:check`), what to read first and how to query the catalog. This file is the index and glossary those rules refer to; `decisions.md` is the table to cite.

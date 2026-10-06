@@ -13,8 +13,10 @@ jobs:
     name: prompts, ADRs, placeholders, links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2            # task, uv, node 22, terraform, awscli from .mise.toml
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5            # task, uv, node 22, terraform, awscli from .mise.toml
+      - name: Every Taskfile parses (the fault class that failed PR #17 run 1 before any step ran)
+        run: task --list-all >/dev/null && task -d templates/catalog-repo --list >/dev/null && task -d templates/domain-repo --list >/dev/null
       - name: Installed commands and skills match the prompts; no prompt names a superseded ADR or retired vocabulary
         run: task prompts:check
       - name: ADR set is consistent and decisions.md is rendered from it
@@ -31,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: spikes/A-catalog-source-of-truth } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: jdx/mise-action@v2
-      - uses: actions/setup-node@v4
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: spikes/A-catalog-source-of-truth/catalog/package-lock.json }
       - run: task catalog:install
       - name: Generate, then prove nothing drifted (generated/ is gitignored, so it is produced here; the generated pages committed inside the catalog must come out identical)
@@ -49,17 +51,17 @@ jobs:
           fi
       - run: task spectral
       - run: task odcs:lint
-      - name: Generator and checks behavioural tests (golden snapshot, fixtures)
-        run: task test
+      - name: The generator's and the checks' tests (golden snapshot, one fixture per check), and the fixture matches this catalog
+        run: task -d ../../platform fixture:check && task -d ../../platform test
       - name: Site builds and the build does not rewrite the catalog
         run: task catalog:build:clean
   templates:
     name: templates pass the pipeline they ship
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
       - name: catalog-repo template, generator → checks → Spectral → ODCS lint → site build with a clean tree
         working-directory: templates/catalog-repo
@@ -70,3 +72,47 @@ jobs:
           PLATFORM_CATALOG: ${{ github.workspace }}/templates/catalog-repo/catalog
           GENERATED: ${{ github.workspace }}/templates/catalog-repo/generated/local
         run: uv run --with boto3 --with pytest --with duckdb --with pyyaml --with jsonschema --with fastjsonschema pytest -q tests -m l0
+  templates-lifted:
+    name: templates run outside the monorepo, pinned to this commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
+      - name: Lift both templates beside the repository and pin the platform at this commit (what pins.yaml does with a tag)
+        run: |
+          lift=$RUNNER_TEMP/lift; mkdir -p "$lift"
+          cp -r templates/catalog-repo "$lift/catalog-repo"; cp -r templates/domain-repo "$lift/domain-repo"
+          for d in catalog-repo domain-repo; do
+            ( cd "$lift/$d" && git init -q && git add -A && git -c user.name=ci -c user.email=ci@ci commit -qm lift \
+              && mise trust --quiet && task platform:checkout REPO="$GITHUB_WORKSPACE" REF="$GITHUB_SHA" )
+          done
+      - name: catalog-repo, lifted — install, then everything a catalog PR runs
+        working-directory: ${{ runner.temp }}/lift/catalog-repo
+        run: task catalog:install && task all
+      - name: domain-repo, lifted — catalog pinned to the lifted catalog repo, generate, L0 suite
+        working-directory: ${{ runner.temp }}/lift/domain-repo
+        run: task catalog:checkout REPO="$RUNNER_TEMP/lift/catalog-repo" REF=HEAD && task gen && task test:l0
+  terraform:
+    name: terraform fmt and validate (modules, spike environments)
+    runs-on: ubuntu-latest
+    env: { TF_IN_AUTOMATION: "1", TF_INPUT: "0" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5            # terraform 1.9 from .mise.toml
+      - name: Formatting
+        run: terraform fmt -check -recursive -diff platform/terraform spikes/B-localstack-buses-end-to-end/terraform spikes/D-custom-event-bus/terraform
+      - name: Validate every module and the two spike environments (providers from the registry; no backend, no credentials)
+        run: |
+          set -e
+          for d in platform/terraform/modules/* spikes/B-localstack-buses-end-to-end/terraform/envs/local spikes/D-custom-event-bus/terraform; do
+            echo "::group::$d"
+            ( cd "$d" && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color )
+            echo "::endgroup::"
+          done
+      - name: Environment lock files are committed (reproducible provider versions; modules are exempt)
+        run: |
+          for f in spikes/B-localstack-buses-end-to-end/terraform/envs/local/.terraform.lock.hcl spikes/D-custom-event-bus/terraform/.terraform.lock.hcl; do
+            git ls-files --error-unmatch "$f" >/dev/null 2>&1 || { echo "::warning file=$f::not committed yet — run \`terraform providers lock -platform=linux_amd64 -platform=darwin_arm64\` in its directory with registry access and commit it (#21)"; }
+          done

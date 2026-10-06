@@ -28,10 +28,10 @@ locals {
   standard_queues = [
     "payments-consumer-order-placed", # what receives[] would generate in the payments account
     "orders-consumer-payment-captured",
-    "probe-all",      # everything, WITH_METADATA
-    "probe-replay",   # target for the test-created POINT_IN_TIME subscriber
-    "probe-classic",  # everything that lands on the Classic orders-bus
-    "broken-target",  # the delivery role has no sqs:SendMessage on this one
+    "probe-all",     # everything, WITH_METADATA
+    "probe-replay",  # target for the test-created POINT_IN_TIME subscriber
+    "probe-classic", # everything that lands on the Classic orders-bus
+    "broken-target", # the delivery role has no sqs:SendMessage on this one
   ]
   subscribers = [
     "payments-consumer-order-placed", "orders-consumer-payment-captured", "probe-all", "fifo-orders",
@@ -69,8 +69,8 @@ resource "aws_sqs_queue_policy" "probe_classic" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow", Principal = { Service = "events.amazonaws.com" }, Action = "sqs:SendMessage"
-      Resource = aws_sqs_queue.q["probe-classic"].arn
+      Effect    = "Allow", Principal = { Service = "events.amazonaws.com" }, Action = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.q["probe-classic"].arn
       Condition = { ArnEquals = { "aws:SourceArn" = aws_cloudwatch_event_rule.classic_probe.arn } }
     }]
   })
@@ -234,8 +234,8 @@ resource "aws_sqs_queue_policy" "classic_forward_dlq" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow", Principal = { Service = "events.amazonaws.com" }, Action = "sqs:SendMessage"
-      Resource = aws_sqs_queue.classic_forward_dlq.arn
+      Effect    = "Allow", Principal = { Service = "events.amazonaws.com" }, Action = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.classic_forward_dlq.arn
       Condition = { ArnEquals = { "aws:SourceArn" = aws_cloudwatch_event_rule.classic_forward.arn } }
     }]
   })

@@ -2,6 +2,8 @@
 
 The history of this repository's decisions and structure. An adopter's fork starts its own list here; the entries below are this repository's provenance and are not part of the pattern.
 
+A release is a section here plus an annotated git tag with the same name (`v0.1.0`, semver): the tag is what `templates/*/pins.yaml` and ADR-017's per-account pin point at. Tag `main` after the section's PRs merge; nothing else is published.
+
 ## Unreleased
 
 - Adoption path: README rewritten for an adopter, MIT licence, limits and cost of entry on the first screen; the spike quick start moved to `spikes/README.md` (#7).

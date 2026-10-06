@@ -3,7 +3,7 @@ catalog:
   repo: https://github.com/example/catalog      # platform.yaml: service_repository_base
   tag: v0.1.0
 platform:
-  repo: https://github.com/example/platform
+  repo: https://github.com/dataGriff/aws.serverless.architecture   # the platform repository; `task platform:checkout` clones it to .platform/
   tag: v0.1.0                                    # the generator and modules your accounts run; semver, pinned per account
 localstack:
   image: localstack/localstack:2026.09.0        # licensed; Community 4.14.0 is the no-licence fallback and cannot enforce IAM

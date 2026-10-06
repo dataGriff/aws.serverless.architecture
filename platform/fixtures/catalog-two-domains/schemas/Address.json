@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform.example/schemas/Address.json",
+  "title": "Address",
+  "description": "Value object. A postal address; every line is direct PII except city, postcode district and country.",
+  "type": "object",
+  "x-kind": "value-object",
+  "properties": {
+    "line1": { "type": "string", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "line2": { "type": "string", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "city": { "type": "string", "x-pii": "indirect" },
+    "postcode": { "type": "string", "x-pii": "direct", "encryption": "subject-key", "decryptors": ["orders"] },
+    "postcodeDistrict": { "type": "string", "x-pii": "indirect" },
+    "country": { "type": "string", "pattern": "^[A-Z]{2}$", "x-pii": "none" }
+  },
+  "required": ["line1", "city", "postcode", "country"],
+  "additionalProperties": false
+}

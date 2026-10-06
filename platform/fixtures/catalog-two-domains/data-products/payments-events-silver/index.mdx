@@ -1,0 +1,25 @@
+---
+id: payments-events-silver
+name: Payments events · silver
+version: 1.0.0
+summary: One Parquet table per public payments event version, in the payments silver bucket, each with a generated ODCS contract.
+owners:
+  - payments-team
+inputs:
+  - id: PaymentCaptured
+    version: 1.0.0
+    type: event
+outputs:
+  - id: payments-payment-captured-v1
+    type: container
+    contract:
+      path: ../../events/PaymentCaptured/odcs.yaml
+      name: PaymentCaptured.v1 ODCS
+      type: odcs
+x-bucket: payments-events-silver
+x-reader-role: payments-reader
+---
+
+Each table is `silver/{source}/{detail-type}/dt=YYYY-MM-DD/hour=HH/`. The contract is generated from the event schema and `data-product.yaml`.
+
+<NodeGraph />

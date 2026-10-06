@@ -16,9 +16,9 @@ What is real today and what is a skeleton:
 ## Lifting it into its own repository
 
 1. Copy this directory to the new repository root.
-2. `pins.yaml`: set the catalog tag, the platform tag and the LocalStack image. The Taskfile checks out the catalog at that tag under `.catalog/` and expects the platform tooling at the path `PLATFORM` names (a submodule at `platform/` is simplest).
+2. `pins.yaml`: set the catalog repository and tag, the platform repository and tag, and the LocalStack image. `task platform:checkout` clones the platform repository at its tag into `.platform/` and `task catalog:checkout` clones the catalog at its tag into `.catalog/` (both gitignored). The Taskfile and `pytest.ini` look for the tooling at `.platform/platform` first and fall back to `../../platform` inside the platform monorepo; `PLATFORM=<dir>` overrides.
 3. Rename `sample` in `Taskfile.yml` (`DOMAIN`) and in the tests to your domain.
-4. `mise install && task up && task gen && task test:l0` should be green before any infrastructure exists.
+4. `mise install && task platform:checkout && task catalog:checkout && task gen && task test:l0` should be green before any infrastructure exists.
 5. Then `/arch:step-1-walking-skeleton` for the first domain, or `/arch:onboard-a-new-domain` for later ones.
 
 Never depend on another domain's code or a shared environment: upstream APIs are Prism mocks of their catalog specs at the pinned tag (`task mock`), and the central bus is the Classic stub in `platform-local`.

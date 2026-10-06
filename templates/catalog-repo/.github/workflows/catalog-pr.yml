@@ -1,7 +1,7 @@
 # What a catalog PR runs. Every step is the same Taskfile task a developer or agent runs locally (one definition,
 # three callers). In the platform repo this file is a specimen (not under the root .github/); it becomes live when
-# the template is lifted into its own repository. It expects the platform tooling at ./platform (a submodule or
-# vendored copy pinned to a tag) — see Taskfile.yml's PLATFORM variable.
+# the template is lifted into its own repository. `task platform:checkout` fetches the platform tooling at the tag
+# pins.yaml names, so the job needs nothing but this repository.
 name: catalog-pr
 on:
   pull_request:
@@ -9,20 +9,21 @@ jobs:
   catalog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0, submodules: true }
-      - uses: jdx/mise-action@v2            # node 22 (EventCatalog 4.12 needs >= 22.12), uv, task
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: jdx/mise-action@v5            # task, uv, node 22 from .mise.toml
+      - run: task platform:checkout
       - run: npm ci
         working-directory: catalog
-      - name: Generated output is up to date (drift fails)
-        run: task gen:check PLATFORM=./platform
+      - name: Generate, then prove nothing drifted (generated/ is gitignored; the generated pages committed inside the catalog must come out identical)
+        run: task gen && task gen:check && git diff --exit-code -- catalog
       - name: Catalog checks against main (schema diff needs the base)
         run: |
-          git worktree add ../.base origin/${{ github.base_ref }}
-          task checks PLATFORM=./platform BASE=../.base/catalog
+          git worktree add .base origin/${{ github.base_ref }}
+          task checks BASE=.base/catalog
       - name: OpenAPI conventions
-        run: task spectral PLATFORM=./platform
+        run: task spectral
       - name: ODCS contracts lint
-        run: task odcs:lint PLATFORM=./platform
+        run: task odcs:lint
       - name: Site builds and the build does not rewrite the catalog
         run: task catalog:build && git diff --exit-code -- catalog

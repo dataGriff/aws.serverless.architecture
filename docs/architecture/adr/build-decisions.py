@@ -4,8 +4,8 @@
 # ///
 """Render the decisions table in decisions.md from the ADR frontmatter, and lint the ADR set.
 
-    uv run docs/architecture/adr/build-decisions.py          # rewrite the table between the markers (task adr:build)
-    uv run docs/architecture/adr/build-decisions.py --check  # lint, then fail if decisions.md is not what build writes (task adr:check)
+    uv run docs/architecture/adr/build-decisions.py          # rewrite the tables between the markers in decisions.md and overview.html (task adr:build)
+    uv run docs/architecture/adr/build-decisions.py --check  # lint, then fail if either is not what build writes (task adr:check)
 
 One row per accepted ADR, from its frontmatter: `concern:` (the table's Concern column), `decision:` (the Default
 column, one paragraph), `revisit_when:` (the Revisit column, one sentence per entry) and `supersedes:` (rendered as
@@ -19,6 +19,7 @@ supersedes another cites evidence.
 """
 from __future__ import annotations
 
+import html
 import re
 import sys
 from pathlib import Path
@@ -27,7 +28,9 @@ import yaml
 
 ADRS = Path(__file__).resolve().parent
 DECISIONS = ADRS.parent / "decisions.md"
+OVERVIEW = ADRS.parent / "overview.html"
 BEGIN, END = "<!-- BEGIN generated from adr/*.md frontmatter: task adr:build -->", "<!-- END generated -->"
+HBEGIN, HEND = "    <!-- BEGIN generated decisions: task adr:build renders these rows from adr/*.md frontmatter -->", "    <!-- END generated decisions -->"
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 STATUSES = {"proposed", "accepted", "superseded"}
 
@@ -104,6 +107,36 @@ def table(adrs: dict[str, dict]) -> str:
     return "\n".join(rows)
 
 
+def inline_html(text: str) -> str:
+    """The little markdown the frontmatter uses, as HTML: escape, then `code`, **bold**, [text](link) → text."""
+    out = html.escape(" ".join(str(text).split()), quote=False)
+    out = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", out)
+    out = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", out)
+    out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+    return out
+
+
+def html_rows(adrs: dict[str, dict]) -> str:
+    rows = []
+    accepted = sorted((k for k, fm in adrs.items() if fm.get("status") == "accepted"), key=lambda k: (order_key(adrs, k), k))
+    for key in accepted:
+        fm = adrs[key]
+        old = str(fm.get("supersedes", ""))[:7]
+        pill = f'<span class="pill p" title="supersedes {old}">{key[4:]}</span>' if old in adrs else f'<span class="pill">{key[4:]}</span>'
+        revisit = " · ".join(inline_html(r).rstrip(".") for r in fm["revisit_when"])
+        rows.append(f"      <tr><td>{pill}</td><td>{inline_html(fm['concern'])}</td><td>{inline_html(fm['decision'])}</td><td>{revisit}</td></tr>")
+    return "\n".join(rows)
+
+
+def render_overview(adrs: dict[str, dict]) -> str:
+    text = OVERVIEW.read_text()
+    if HBEGIN not in text or HEND not in text:
+        raise SystemExit(f"{OVERVIEW.name}: needs the markers {HBEGIN.strip()!r} and {HEND.strip()!r} inside the decisions tbody")
+    head, rest = text.split(HBEGIN, 1)
+    _, tail = rest.split(HEND, 1)
+    return f"{head}{HBEGIN}\n{html_rows(adrs)}\n{HEND}{tail}"
+
+
 def render(adrs: dict[str, dict]) -> str:
     text = DECISIONS.read_text()
     if BEGIN not in text or END not in text:
@@ -118,11 +151,14 @@ if __name__ == "__main__":
     problems = lint(adrs)
     if problems:
         raise SystemExit("ADR set is inconsistent:\n  " + "\n  ".join(problems))
-    new = render(adrs)
+    new, new_html = render(adrs), render_overview(adrs)
     if "--check" in sys.argv:
-        if new != DECISIONS.read_text():
-            raise SystemExit("decisions.md is out of date with the ADR frontmatter — run `task adr:build` and commit")
-        print(f"{len(adrs)} ADRs consistent; decisions.md matches the frontmatter")
+        stale = [p.name for p, n in ((DECISIONS, new), (OVERVIEW, new_html)) if n != p.read_text()]
+        if stale:
+            raise SystemExit(f"{' and '.join(stale)} out of date with the ADR frontmatter — run `task adr:build` and commit")
+        print(f"{len(adrs)} ADRs consistent; decisions.md and overview.html match the frontmatter")
     else:
         DECISIONS.write_text(new)
-        print(f"rendered {sum(1 for fm in adrs.values() if fm.get('status') == 'accepted')} rows into {DECISIONS.name}")
+        OVERVIEW.write_text(new_html)
+        n = sum(1 for fm in adrs.values() if fm.get("status") == "accepted")
+        print(f"rendered {n} rows into {DECISIONS.name} and {OVERVIEW.name}")

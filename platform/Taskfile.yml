@@ -1,0 +1,31 @@
+version: "3"
+vars:
+  PYTEST: uv run --with pytest --with pyyaml --with python-frontmatter --with jsonschema pytest -q
+  # The generator's test fixture is the worked example's content; the spike keeps the full site. These dirs must match.
+  SPIKE_CATALOG: "{{.TASKFILE_DIR}}/../spikes/A-catalog-source-of-truth/catalog"
+  FIXTURE: "{{.TASKFILE_DIR}}/fixtures/catalog-two-domains"
+  CONTENT: channels commands data-products domains events queries schemas services teams CODEOWNERS
+tasks:
+  default:
+    cmds: [task --list]
+  test:
+    desc: The generator's and the checks' behavioural tests against fixtures/catalog-two-domains (golden snapshot, one fixture per check; includes the slow Spectral and ODCS ones)
+    cmds: ["{{.PYTEST}}"]
+  test:fast:
+    desc: The same without the external linters
+    cmds: ['{{.PYTEST}} -m "not slow"']
+  test:update-golden:
+    desc: Accept the current generator output as the golden snapshot
+    cmds: ["UPDATE_GOLDEN=1 {{.PYTEST}} -k golden"]
+  fixture:check:
+    desc: Fail if fixtures/catalog-two-domains drifted from the worked example catalog in spikes/A (skipped when the spike is absent)
+    cmds:
+      - |
+        [ -d "{{.SPIKE_CATALOG}}" ] || { echo "no spike catalog; fixture is the source"; exit 0; }
+        for d in {{.CONTENT}}; do diff -r "{{.SPIKE_CATALOG}}/$d" "{{.FIXTURE}}/$d" || { echo "fixture drifted from the spike catalog in $d — run task platform:fixture:sync"; exit 1; }; done
+        echo "fixture matches the worked example"
+  fixture:sync:
+    desc: Copy the worked example's content from spikes/A into fixtures/catalog-two-domains, then accept the golden snapshot
+    cmds:
+      - for d in {{.CONTENT}}; do rm -rf "{{.FIXTURE}}/$d"; cp -r "{{.SPIKE_CATALOG}}/$d" "{{.FIXTURE}}/$d"; done
+      - task: test:update-golden

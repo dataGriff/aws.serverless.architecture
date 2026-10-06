@@ -1,8 +1,6 @@
 # Spikes — prove the two load-bearing ideas before day one
 
-Two isolated spikes and one join. A proves "the catalog is the source of truth" with no AWS at all; B proves "domain bus to central bus and back" on LocalStack with no catalog at all; C replaces B's hand-written patterns with A's generated ones and shows a catalog PR changing behaviour on the buses. Each is time-boxed to two days and ends in a `findings.md` that feeds back into the ADRs and the roadmap.
-
-Suggested layout: `spikes/A-catalog-source-of-truth/`, `spikes/B-localstack-buses-end-to-end/`, `spikes/C-join/` — separate directories, separate sessions, no shared code until C.
+Four spikes, all run and written up under [`spikes/`](../../../../spikes/README.md). A proved "the catalog is the source of truth" with no AWS at all; B proved that EventBridge Classic delivers one bus-to-bus hop, on LocalStack and in a real account; C replaced B's hand-written patterns with A's generated ones and showed a catalog PR changing behaviour on the buses; D proved the Custom Event Bus as central. Each was time-boxed to two days and ended in a `findings.md` that fed the ADRs and the roadmap. The prompts for A, B and C are kept as they ran (`historical: true`); D had no prompt. The code the spikes proved now lives under `platform/`, with the generator's tests.
 
 | Spike | Prompt | Needs | Command |
 | --- | --- | --- | --- |

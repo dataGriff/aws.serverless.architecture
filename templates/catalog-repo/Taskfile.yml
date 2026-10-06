@@ -1,13 +1,23 @@
 version: "3"
 vars:
-  # The platform tooling this catalog is checked and generated with (platform/README.md). In the platform repo this
-  # is a relative path; once this template is lifted into its own repository, point it at a pinned checkout
-  # (submodule, vendored copy, or a path) of the platform tag your accounts run (ADR-017: semver-pinned per account).
-  PLATFORM: '{{.PLATFORM | default (printf "%s/../../platform" .TASKFILE_DIR)}}'
+  # Where the platform tooling is. Lifted into its own repository: `.platform/` is a checkout of the platform repository at
+  # the tag pins.yaml names (`task platform:checkout`), so the tooling is at .platform/platform. Inside the platform
+  # monorepo: ../../platform. `task <x> PLATFORM=<dir>` overrides either.
+  PLATFORM:
+    sh: 'if [ -d "{{.TASKFILE_DIR}}/.platform/platform" ]; then echo "{{.TASKFILE_DIR}}/.platform/platform"; else echo "{{.TASKFILE_DIR}}/../../platform"; fi'
   BASE: '{{.BASE | default ""}}'
 tasks:
   default:
     cmds: [task --list]
+  platform:checkout:
+    desc: "Check out the platform repository at the tag pins.yaml names into .platform/ (REPO=… REF=… override the pins)"
+    cmds:
+      - |
+        repo="{{.REPO}}"; ref="{{.REF}}"
+        [ -n "$repo" ] || repo=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['platform']['repo'])")
+        [ -n "$ref" ]  || ref=$(uv run --with pyyaml python -c "import yaml;print(yaml.safe_load(open('pins.yaml'))['platform']['tag'])")
+        rm -rf .platform && git clone --quiet "$repo" .platform && git -C .platform checkout --quiet "$ref"
+        echo "platform tooling at .platform/platform ($ref)"
   catalog:install:
     dir: catalog
     cmds: [mise exec -- npm ci]

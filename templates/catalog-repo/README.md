@@ -9,10 +9,10 @@ It passes the whole catalog pipeline as it stands: `task all` runs the generator
 The catalog is its own repo on day one (prompt 01). To lift this template:
 
 1. Copy this directory to the new repository root. `catalog/` is the EventCatalog site; `Taskfile.yml`, `.mise.toml` and `.github/workflows/catalog-pr.yml` sit beside it.
-2. Pin the platform tooling: set `PLATFORM` in `Taskfile.yml` (or `task all PLATFORM=…`) to a checkout of the platform repo's `platform/` directory at the tag your accounts run. A git submodule at `platform/` is the simplest.
+2. Pin the platform tooling: set the tag in `pins.yaml` and run `task platform:checkout`. It clones the platform repository at that tag into `.platform/` (gitignored) and the Taskfile uses `.platform/platform` from then on; `task all PLATFORM=<dir>` overrides it. Inside the platform monorepo nothing is checked out and `../../platform` is used.
 3. Copy `catalog/CODEOWNERS` to the repository root (GitHub reads it there).
 4. Replace the placeholders listed in the platform repo's `platform.yaml` (`example.com`, `platform.example`, the org name, `editUrl`) and rename `sample` to your first domain, or run `/arch:day-one-bootstrap-catalog`, which does this against the conventions.
-5. `task catalog:install && task all`.
+5. `mise install && task catalog:install && task all`.
 
 ## Layout
 

@@ -1,0 +1,25 @@
+description:
+  purpose: Analytical copy of every public PaymentCaptured.v1 event, one row per eventId.
+  limitations: No direct PII; customerId is pseudonymous and unlinkable after the subject record is deleted.
+  usage: Query the DuckDB view silver_payments_payment_captured_v1; always filter on dt.
+slaProperties:
+  - property: latency
+    value: 3
+    unit: h
+    element: payments_payment_captured_v1.occurred_at
+  - property: frequency
+    value: 1
+    unit: h
+  - property: retention
+    value: 7
+    unit: y
+team:
+  - username: payments-team
+    role: owner
+quality:
+  - type: custom
+    engine: platform-checks
+    implementation: reconciliation(outbox=payments, tolerance=0.001)
+tags:
+  - payments
+  - revenue

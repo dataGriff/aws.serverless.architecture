@@ -4,6 +4,9 @@ Put events, watch SQS probes and subscriber queues, read the bronze buckets, ope
 Queue URLs, DLQs and buckets come from `terraform output -json` (cached as .<name>.json by the Taskfile).
 Valid payloads come from the catalog's own examples, so a test event is exactly what the generator validated.
 
+Target: PLATFORM_TARGET=localstack (default) or aws (the nightly L2 run; step 3 adds the fixtures, assert_published,
+prism(), replay(), erase_subject() around this core).
+
 Three locations, from the environment (a domain repo's Taskfile sets them; Spike B's tests/harness.py shim does too):
     PLATFORM_TF_DIR     the Terraform env that applied the buses        (default: terraform/envs/local under the cwd)
     PLATFORM_CATALOG    the catalog checkout whose examples are valid   (default: catalog under the cwd)
@@ -21,10 +24,17 @@ from pathlib import Path
 
 import boto3
 
-ENDPOINT = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:4566")
+# PLATFORM_TARGET=localstack (default, L1): the LocalStack endpoint and its throwaway credentials.
+# PLATFORM_TARGET=aws (the nightly L2 run, step 3): no endpoint override, credentials from the normal AWS chain.
+TARGET = os.environ.get("PLATFORM_TARGET", "localstack")
+IS_LOCALSTACK = TARGET == "localstack"
+ENDPOINT = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:4566") if IS_LOCALSTACK else os.environ.get("AWS_ENDPOINT_URL")
 REGION = os.environ.get("AWS_DEFAULT_REGION", "eu-west-1")
-IS_LOCALSTACK = True
-_cfg = dict(endpoint_url=ENDPOINT, region_name=REGION, aws_access_key_id="test", aws_secret_access_key="test")
+_cfg = dict(region_name=REGION)
+if ENDPOINT:
+    _cfg["endpoint_url"] = ENDPOINT
+if IS_LOCALSTACK:
+    _cfg.update(aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "test"), aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "test"))
 events = boto3.client("events", **_cfg)
 sqs = boto3.client("sqs", **_cfg)
 s3 = boto3.client("s3", **_cfg)
@@ -136,8 +146,8 @@ def purge_all() -> None:
     for url in {**queues(), **dlqs()}.values():
         try:
             sqs.purge_queue(QueueUrl=url)
-        except Exception:
-            pass
+        except Exception as e:   # PurgeQueueInProgress within 60 s of the last purge is the usual one; say so, do not hide it
+            print(f"purge_all: {url.rsplit('/', 1)[-1]}: {type(e).__name__}: {e}")
 
 
 def rules_on(bus: str) -> dict[str, dict]:
@@ -211,11 +221,14 @@ def bronze_ids(*, source: str, detail_type: str) -> set[str]:
 def duck_s3():
     """DuckDB connection able to read LocalStack's S3 (httpfs, path-style, test creds, no views)."""
     import duckdb
-    host = ENDPOINT.split("://", 1)[1]
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
-    con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; "
-                f"SET s3_region='{REGION}'; SET s3_access_key_id='test'; SET s3_secret_access_key='test';")
+    if IS_LOCALSTACK:
+        host = ENDPOINT.split("://", 1)[1]
+        con.execute(f"SET s3_endpoint='{host}'; SET s3_use_ssl=false; SET s3_url_style='path'; "
+                    f"SET s3_region='{REGION}'; SET s3_access_key_id='{_cfg['aws_access_key_id']}'; SET s3_secret_access_key='{_cfg['aws_secret_access_key']}';")
+    else:
+        con.execute(f"SET s3_region='{REGION}';")   # credentials from the AWS chain (duckdb's credential_chain extension is step 3's call)
     return con
 
 

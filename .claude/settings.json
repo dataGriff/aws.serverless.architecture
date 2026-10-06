@@ -3,8 +3,10 @@
     "allow": [
       "Bash(task *)",
       "Bash(uv run *)",
-      "Bash(uvx *)",
-      "Bash(npx *)",
+      "Bash(npx -y @stoplight/spectral-cli *)",
+      "Bash(npx -y @stoplight/prism-cli *)",
+      "Bash(uvx --from datacontract-cli *)",
+      "Bash(uvx schemathesis *)",
       "Bash(npm ci)",
       "Bash(npm run *)",
       "Bash(python3 docs/architecture/prompts/install-commands.py *)",
