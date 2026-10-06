@@ -13,8 +13,8 @@ jobs:
     name: prompts, ADRs, placeholders, links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2            # task, uv, node 22, terraform, awscli from .mise.toml
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5            # task, uv, node 22, terraform, awscli from .mise.toml
       - name: Every Taskfile parses (the fault class that failed PR #17 run 1 before any step ran)
         run: task --list-all >/dev/null && task -d templates/catalog-repo --list >/dev/null && task -d templates/domain-repo --list >/dev/null
       - name: Installed commands and skills match the prompts; no prompt names a superseded ADR or retired vocabulary
@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: spikes/A-catalog-source-of-truth } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: jdx/mise-action@v2
-      - uses: actions/setup-node@v4
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: spikes/A-catalog-source-of-truth/catalog/package-lock.json }
       - run: task catalog:install
       - name: Generate, then prove nothing drifted (generated/ is gitignored, so it is produced here; the generated pages committed inside the catalog must come out identical)
@@ -59,9 +59,9 @@ jobs:
     name: templates pass the pipeline they ship
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
       - name: catalog-repo template, generator → checks → Spectral → ODCS lint → site build with a clean tree
         working-directory: templates/catalog-repo
@@ -76,9 +76,9 @@ jobs:
     name: templates run outside the monorepo, pinned to this commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: templates/catalog-repo/catalog/package-lock.json }
       - name: Lift both templates beside the repository and pin the platform at this commit (what pins.yaml does with a tag)
         run: |
@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-latest
     env: { TF_IN_AUTOMATION: "1", TF_INPUT: "0" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2            # terraform 1.9 from .mise.toml
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5            # terraform 1.9 from .mise.toml
       - name: Formatting
         run: terraform fmt -check -recursive -diff platform/terraform spikes/B-localstack-buses-end-to-end/terraform spikes/D-custom-event-bus/terraform
       - name: Validate every module and the two spike environments (providers from the registry; no backend, no credentials)

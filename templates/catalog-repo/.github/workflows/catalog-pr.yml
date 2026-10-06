@@ -9,9 +9,9 @@ jobs:
   catalog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: jdx/mise-action@v2            # task, uv, node 22 from .mise.toml
+      - uses: jdx/mise-action@v5            # task, uv, node 22 from .mise.toml
       - run: task platform:checkout
       - run: npm ci
         working-directory: catalog
