@@ -1,11 +1,14 @@
 """Install docs/architecture/prompts/*.md as Claude Code commands under .claude/commands/arch/.
 
 The prompt file is the source. The command is the same body with a one-line frontmatter
-(`description: <title>`), named after the prompt without its numeric prefix. Run: task prompts
+(`description: <title>`), named after the prompt without its numeric prefix, with the shared blocks under
+`_partials/` inlined where the prompt says `{{> name}}` and the frontmatter `read_first` list rendered where it
+says `{{read_first}}`, so the installed command is self-contained. Run: task prompts
 
 `--check` also lints the prompts against the ADR set and the conventions the spikes settled, so a
 prompt cannot drift behind the docs again:
   - no prompt names an ADR whose frontmatter says `status: superseded`
+  - no prompt carries a literal copy of a partial instead of its `{{> name}}` include
   - no prompt uses vocabulary EventCatalog rejects or the spikes retired (`openapiPath`, a bare
     `visibility:`/`audience:` key, a `sunset` field, `versioned/1/` as the current version)
 A prompt with `historical: true` in its frontmatter (the spike prompts that ran under the old ADRs)
@@ -21,11 +24,14 @@ ROOT = Path(__file__).resolve().parents[3]
 PROMPTS = ROOT / "docs" / "architecture" / "prompts"
 COMMANDS = ROOT / ".claude" / "commands" / "arch"
 ADRS = ROOT / "docs" / "architecture" / "adr"
+PARTIALS = PROMPTS / "_partials"
 
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 TITLE = re.compile(r'^title:\s*"?(.*?)"?\s*$', re.M)
 STATUS = re.compile(r"^status:\s*(\S+)", re.M)
 ADR_REF = re.compile(r"\bADR-(\d{3})\b")
+INCLUDE = re.compile(r"^\{\{> ([a-z0-9-]+)\}\}$", re.M)
+READ_FIRST = re.compile(r"^read_first:\n((?:  - .*\n)+)", re.M)
 
 # (regex, why it is wrong, what to write instead) — see conventions.md and spikes/A-catalog-source-of-truth/findings.md
 RETIRED = [
@@ -45,11 +51,29 @@ def split(prompt: Path) -> tuple[str, str]:
     return m.group(1), text[m.end():]
 
 
+def render(fm: str, body: str, prompt: Path) -> str:
+    """Inline `{{> name}}` from _partials/<name>.md and render `{{read_first}}` from the frontmatter list."""
+    def partial(m: re.Match) -> str:
+        f = PARTIALS / f"{m.group(1)}.md"
+        if not f.exists():
+            raise SystemExit(f"{prompt}: unknown partial {{{{> {m.group(1)}}}}} (no {f.relative_to(ROOT)})")
+        return f.read_text().rstrip("\n")
+    body = INCLUDE.sub(partial, body)
+    if "{{read_first}}" in body:
+        m = READ_FIRST.search(fm + "\n")
+        if not m:
+            raise SystemExit(f"{prompt}: uses {{{{read_first}}}} but has no read_first list in its frontmatter")
+        items = [line.strip()[2:].strip() for line in m.group(1).splitlines()]
+        body = body.replace("{{read_first}}", " · ".join(f"`{i}`" for i in items))
+    return body
+
+
 def install(prompt: Path) -> Path:
     fm, body = split(prompt)
     title = TITLE.search(fm)
     if not title:
         raise SystemExit(f"{prompt}: no title")
+    body = render(fm, body, prompt)
     rel = prompt.relative_to(PROMPTS).as_posix()
     slug = re.sub(r"^\d+-", "", rel.rsplit("/", 1)[-1]).removesuffix(".md")
     if rel.startswith("spikes/"):  # A-catalog-source-of-truth.md -> spike-a-catalog-source-of-truth
@@ -75,6 +99,12 @@ def lint(prompt: Path, superseded: dict[str, str]) -> list[str]:
         return []
     rel = prompt.relative_to(ROOT).as_posix()
     problems = []
+    for f in sorted(PARTIALS.glob("*.md")):
+        if f.name == "README.md":
+            continue
+        marker = f.read_text().splitlines()[2]   # the first body line after the heading and its blank line
+        if marker and marker in body:
+            problems.append(f"{rel}: carries a literal copy of _partials/{f.name}; use {{{{> {f.stem}}}}} instead")
     for n, line in enumerate(prompt.read_text().splitlines(), 1):
         for m in ADR_REF.finditer(line):
             ref = f"ADR-{m.group(1)}"
@@ -88,7 +118,7 @@ def lint(prompt: Path, superseded: dict[str, str]) -> list[str]:
 
 if __name__ == "__main__":
     COMMANDS.mkdir(parents=True, exist_ok=True)
-    files = sorted(p for p in PROMPTS.rglob("*.md") if p.name != "README.md")
+    files = sorted(p for p in PROMPTS.rglob("*.md") if p.name != "README.md" and PARTIALS not in p.parents)
     written = [install(p) for p in files]
     print(f"installed {len(written)} commands into {COMMANDS.relative_to(ROOT)}")
     if "--check" in sys.argv:
