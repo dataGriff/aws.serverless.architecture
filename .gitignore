@@ -1,8 +1,8 @@
-# terraform
+# terraform — environments commit their .terraform.lock.hcl (reproducible provider versions); modules do not
 **/.terraform/
 *.tfstate
 *.tfstate.backup
-.terraform.lock.hcl
+**/modules/**/.terraform.lock.hcl
 # python / tooling
 __pycache__/
 .pytest_cache/

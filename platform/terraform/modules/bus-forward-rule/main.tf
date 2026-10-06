@@ -115,4 +115,4 @@ resource "aws_sqs_queue_policy" "dlq" {
 }
 
 output "rule_arn" { value = aws_cloudwatch_event_rule.this.arn }
-output "dlq_url"  { value = aws_sqs_queue.dlq.id }
+output "dlq_url" { value = aws_sqs_queue.dlq.id }
