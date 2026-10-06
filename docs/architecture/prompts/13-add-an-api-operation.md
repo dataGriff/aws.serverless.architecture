@@ -1,5 +1,7 @@
 ---
 step: cross-cutting
+when: >-
+  Use when adding a command (POST) or query (GET) to a domain's OpenAPI in the catalog, design-first: Spectral and oasdiff, the generated route, validator, client and Prism mock before any handler, then the handler with idempotency and problem+json. Triggers on 'add an endpoint', 'add an API operation', 'new command', 'new query', 'expose an API'.
 title: "Operation · Add an API operation (command or query)"
 read_first:
   - docs/architecture/conventions.md

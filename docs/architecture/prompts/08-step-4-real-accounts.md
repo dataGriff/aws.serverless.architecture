@@ -1,5 +1,7 @@
 ---
 step: 4
+when: >-
+  Use for roadmap step 4: real AWS accounts, nonprod then prod — the Custom Event Bus shared by RAM, subscribers applied in manifest order, bucket pairs with CMKs and Object Lock, DNS, WAF, smokes, environment pins, the replay runbook. Triggers on 'real accounts', 'nonprod', 'prod', 'step 4', 'RAM share', 'go live'.
 title: "Step 4 · Real accounts — nonprod, then prod"
 read_first:
   - docs/architecture/roadmap.md (Step 4)

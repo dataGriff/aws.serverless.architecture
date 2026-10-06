@@ -1,5 +1,7 @@
 ---
 step: cross-cutting
+when: >-
+  Use when reviewing a PR or a design against the architecture: finds what contradicts a decision, convention, PII rule, data contract or testing layer and cites the ADR or doc section; outputs a findings table and approve / approve-with-fixes / block. Triggers on 'architecture review', 'review this PR against the decisions', 'does this follow the conventions'.
 title: "Cross-cutting · Review a change against the architecture"
 read_first:
   - docs/architecture/decisions.md

@@ -1,12 +1,6 @@
 ---
-historical: true
-when: >-
-  Use only to re-run Spike B (historical, ran under ADR-001 and produced THIRD_ACCOUNT_HOP_DETECTED): EventBridge bus-to-bus mechanics on LocalStack and in a real account. Read spikes/B-localstack-buses-end-to-end/findings.md first. Triggers on 'spike B', 'bus spike', 'LocalStack buses'.
-title: "Spike B · Domain bus ↔ central bus end to end on LocalStack (no catalog)"
-read_first:
-  - docs/architecture/adr/ADR-001-transport-routing.md
-  - docs/architecture/adr/ADR-006-event-shape.md
-  - docs/architecture/testing.md
+name: arch-spike-b-localstack-buses-end-to-end
+description: Use only to re-run Spike B (historical, ran under ADR-001 and produced THIRD_ACCOUNT_HOP_DETECTED): EventBridge bus-to-bus mechanics on LocalStack and in a real account. Read spikes/B-localstack-buses-end-to-end/findings.md first. Triggers on 'spike B', 'bus spike', 'LocalStack buses'.
 ---
 
 # Spike B · Domain bus ↔ central bus end to end on LocalStack (no catalog)

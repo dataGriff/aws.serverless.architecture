@@ -1,5 +1,7 @@
 ---
 step: cross-cutting
+when: >-
+  Use when a data-subject erasure (right to be forgotten) request arrives: identify the subject across domains, settle retention obligations, delete the subject key with approval and grace, confirm SubjectErased is consumed by every decryptor, verify and log. Triggers on 'erasure request', 'delete a customer's data', 'right to be forgotten', 'GDPR deletion', 'crypto-shred'.
 title: "Operation · Handle a subject erasure request"
 read_first:
   - docs/architecture/pii.md

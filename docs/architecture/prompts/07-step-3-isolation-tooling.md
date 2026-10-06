@@ -1,5 +1,7 @@
 ---
 step: 3
+when: >-
+  Use for roadmap step 3 when extracting platform-local as a versioned module, publishing the platform_testing package, pinning upstream APIs as Prism mocks, and running the erasure drill and the nightly L2 sandbox run. Triggers on 'platform-local', 'platform_testing', 'test in isolation', 'erasure drill'.
 title: "Step 3 · platform-local, platform_testing and the erasure drill"
 read_first:
   - docs/architecture/testing.md

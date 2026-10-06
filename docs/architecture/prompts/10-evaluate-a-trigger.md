@@ -1,5 +1,7 @@
 ---
 step: only-when
+when: >-
+  Use whenever someone asks for a service or change the decisions table does not permit (Athena, Glue, Iceberg, Kinesis, Temporal, Step Functions outside the saga, CloudFront, a Schema Registry, a data platform account, a second region, a different bus topology): decide with evidence whether an ADR's revisit_when trigger has fired and either propose a superseding ADR or name the alternative inside current defaults. Triggers on 'can we use', 'why can't we', 'should we add', 'is the trigger fired', 'new ADR'.
 title: "Only when · Evaluate whether an ADR trigger has fired"
 read_first:
   - docs/architecture/decisions.md

@@ -1,4 +1,6 @@
-"""Install docs/architecture/prompts/*.md as Claude Code commands under .claude/commands/arch/.
+"""Install docs/architecture/prompts/*.md as Claude Code commands under .claude/commands/arch/ and as skills under
+.claude/skills/arch-<name>/SKILL.md (the skill's description is the prompt's `when:` frontmatter, written so the
+skill triggers on intent without the user knowing the command name).
 
 The prompt file is the source. The command is the same body with a one-line frontmatter
 (`description: <title>`), named after the prompt without its numeric prefix, with the shared blocks under
@@ -9,6 +11,7 @@ says `{{read_first}}`, so the installed command is self-contained. Run: task pro
 prompt cannot drift behind the docs again:
   - no prompt names an ADR whose frontmatter says `status: superseded`
   - no prompt carries a literal copy of a partial instead of its `{{> name}}` include
+  - every prompt has a `when:` (the skill description) and AGENTS.md carries the hard-rules partial verbatim
   - no prompt uses vocabulary EventCatalog rejects or the spikes retired (`openapiPath`, a bare
     `visibility:`/`audience:` key, a `sunset` field, `versioned/1/` as the current version)
 A prompt with `historical: true` in its frontmatter (the spike prompts that ran under the old ADRs)
@@ -23,11 +26,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 PROMPTS = ROOT / "docs" / "architecture" / "prompts"
 COMMANDS = ROOT / ".claude" / "commands" / "arch"
+SKILLS = ROOT / ".claude" / "skills"
+AGENTS_MD = ROOT / "AGENTS.md"
 ADRS = ROOT / "docs" / "architecture" / "adr"
 PARTIALS = PROMPTS / "_partials"
 
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 TITLE = re.compile(r'^title:\s*"?(.*?)"?\s*$', re.M)
+WHEN = re.compile(r"^when: >-\n((?:  .*\n?)+)", re.M)
 STATUS = re.compile(r"^status:\s*(\S+)", re.M)
 ADR_REF = re.compile(r"\bADR-(\d{3})\b")
 INCLUDE = re.compile(r"^\{\{> ([a-z0-9-]+)\}\}$", re.M)
@@ -68,19 +74,31 @@ def render(fm: str, body: str, prompt: Path) -> str:
     return body
 
 
-def install(prompt: Path) -> Path:
-    fm, body = split(prompt)
-    title = TITLE.search(fm)
-    if not title:
-        raise SystemExit(f"{prompt}: no title")
-    body = render(fm, body, prompt)
+def slug_of(prompt: Path) -> str:
     rel = prompt.relative_to(PROMPTS).as_posix()
     slug = re.sub(r"^\d+-", "", rel.rsplit("/", 1)[-1]).removesuffix(".md")
     if rel.startswith("spikes/"):  # A-catalog-source-of-truth.md -> spike-a-catalog-source-of-truth
         slug = "spike-" + slug[0].lower() + slug[1:]
-    out = COMMANDS / f"{slug}.md"
-    out.write_text(f'---\ndescription: "{title.group(1)}"\n---\n{body}')
-    return out
+    return slug
+
+
+def install(prompt: Path) -> list[Path]:
+    fm, body = split(prompt)
+    title = TITLE.search(fm)
+    if not title:
+        raise SystemExit(f"{prompt}: no title")
+    when = WHEN.search(fm + "\n")
+    if not when:
+        raise SystemExit(f"{prompt}: no `when:` block scalar in its frontmatter (the skill description)")
+    description = " ".join(line.strip() for line in when.group(1).splitlines() if line.strip())
+    body = render(fm, body, prompt)
+    slug = slug_of(prompt)
+    command = COMMANDS / f"{slug}.md"
+    command.write_text(f'---\ndescription: "{title.group(1)}"\n---\n{body}')
+    skill = SKILLS / f"arch-{slug}" / "SKILL.md"
+    skill.parent.mkdir(parents=True, exist_ok=True)
+    skill.write_text(f"---\nname: arch-{slug}\ndescription: {description}\n---\n{body}")
+    return [command, skill]
 
 
 def superseded_adrs() -> dict[str, str]:
@@ -119,14 +137,22 @@ def lint(prompt: Path, superseded: dict[str, str]) -> list[str]:
 if __name__ == "__main__":
     COMMANDS.mkdir(parents=True, exist_ok=True)
     files = sorted(p for p in PROMPTS.rglob("*.md") if p.name != "README.md" and PARTIALS not in p.parents)
-    written = [install(p) for p in files]
-    print(f"installed {len(written)} commands into {COMMANDS.relative_to(ROOT)}")
+    written = [out for p in files for out in install(p)]
+    expected = {SKILLS / f"arch-{slug_of(p)}" for p in files}
+    for stale in sorted(d for d in SKILLS.glob("arch-*") if d.is_dir() and d not in expected):
+        for f in stale.rglob("*"):
+            f.unlink()
+        stale.rmdir()
+    print(f"installed {len(files)} prompts as commands under {COMMANDS.relative_to(ROOT)} and skills under {SKILLS.relative_to(ROOT)}")
     if "--check" in sys.argv:
         import subprocess
         superseded = superseded_adrs()
         problems = [p for f in files for p in lint(f, superseded)]
+        rules = (PARTIALS / "hard-rules.md").read_text().split("\n\n", 1)[1].strip()
+        if rules not in AGENTS_MD.read_text():
+            problems.append("AGENTS.md: its Hard rules section is not the _partials/hard-rules.md text verbatim")
         if problems:
             raise SystemExit("prompts drifted behind the docs:\n  " + "\n  ".join(problems))
-        print(f"linted {len(files)} prompts against {len(superseded)} superseded ADRs: clean")
-        if subprocess.run(["git", "diff", "--quiet", "--", str(COMMANDS)], cwd=ROOT).returncode:
-            raise SystemExit("commands out of date with prompts — run `task prompts` and commit")
+        print(f"linted {len(files)} prompts against {len(superseded)} superseded ADRs, AGENTS.md carries the hard rules: clean")
+        if subprocess.run(["git", "status", "--porcelain", "--", str(COMMANDS), str(SKILLS)], cwd=ROOT, capture_output=True, text=True).stdout.strip():
+            raise SystemExit("commands or skills out of date with prompts — run `task prompts` and commit")

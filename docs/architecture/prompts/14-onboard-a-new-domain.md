@@ -1,5 +1,7 @@
 ---
 step: cross-cutting
+when: >-
+  Use when bringing a new business domain onto the platform: its catalog entries, nonprod and prod accounts with OIDC roles, DNS delegation, the generated bus, bucket pair, subscribers and API, the domain repo from templates/domain-repo, smokes, the first consumer. Triggers on 'onboard a domain', 'new domain', 'add a team to the platform'.
 title: "Operation · Onboard a new domain"
 read_first:
   - docs/architecture/README.md

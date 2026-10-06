@@ -1,5 +1,7 @@
 ---
 step: 2
+when: >-
+  Use for roadmap step 2 when turning the rules in generation-and-ci.md into CI checks: catalog PR checks, domain PR checks, the nightly skeleton, reusable versioned workflows with one failing fixture per rule. Triggers on 'CI guardrails', 'catalog CI', 'PR checks', 'reusable workflow'.
 title: "Step 2 · CI guardrails for catalog and domain PRs"
 read_first:
   - docs/architecture/generation-and-ci.md (CI section)

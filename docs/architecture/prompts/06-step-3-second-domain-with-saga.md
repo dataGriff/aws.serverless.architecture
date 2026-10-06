@@ -1,5 +1,7 @@
 ---
 step: 3
+when: >-
+  Use for roadmap step 3 when adding the second domain (payments) entirely through catalog PRs: an external webhook route behind WAF, the saga module driving authorise → capture → settle, subscribers both ways, PII arriving from outside. Triggers on 'second domain', 'saga', 'payments domain', 'webhook ingest'.
 title: "Step 3 · Payments domain, with a saga and an external webhook"
 read_first:
   - docs/architecture/roadmap.md (Step 3)

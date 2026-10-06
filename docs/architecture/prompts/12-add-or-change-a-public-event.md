@@ -1,5 +1,7 @@
 ---
 step: cross-cutting
+when: >-
+  Use when adding a new public event, a new version of one, or changing an event's schema or visibility: the catalog PR, the expected generated diff, the producer's outbox write, L0/L1 tests, consumers' receives[], dual-publishing until deprecated.date. Triggers on 'add an event', 'publish a new event', 'new event version', 'change the schema of', 'make an event public'.
 title: "Operation · Add or change a public event"
 read_first:
   - docs/architecture/conventions.md

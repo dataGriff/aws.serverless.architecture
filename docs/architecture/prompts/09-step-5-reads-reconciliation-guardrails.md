@@ -1,5 +1,7 @@
 ---
 step: 5
+when: >-
+  Use for roadmap step 5: reader roles, DuckDB views across domain silvers, the nightly checks Lambda (reconciliation, drift, undocumented events, contract tests, freshness, ROPA, access review) and the first cross-domain question answered from silver. Triggers on 'reconciliation', 'nightly checks', 'read across domains', 'step 5', 'drift report'.
 title: "Step 5 · Reading across domains, reconciliation and the nightly guardrails"
 read_first:
   - docs/architecture/roadmap.md (Step 5)

@@ -1,13 +1,6 @@
 ---
-historical: true
-when: >-
-  Use only to re-run Spike A (historical, pre-ADR-021): proving EventCatalog can be the single offline source the generator and checks run from. Read spikes/A-catalog-source-of-truth/findings.md first. Triggers on 'spike A', 'catalog source of truth spike'.
-title: "Spike A · EventCatalog as the source of truth (no AWS)"
-read_first:
-  - docs/architecture/conventions.md
-  - docs/architecture/pii.md
-  - docs/architecture/data-contracts.md
-  - docs/architecture/generation-and-ci.md
+name: arch-spike-a-catalog-source-of-truth
+description: Use only to re-run Spike A (historical, pre-ADR-021): proving EventCatalog can be the single offline source the generator and checks run from. Read spikes/A-catalog-source-of-truth/findings.md first. Triggers on 'spike A', 'catalog source of truth spike'.
 ---
 
 # Spike A · EventCatalog as the source of truth (no AWS)

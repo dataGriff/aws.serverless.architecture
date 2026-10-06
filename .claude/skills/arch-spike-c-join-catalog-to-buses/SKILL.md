@@ -1,11 +1,6 @@
 ---
-when: >-
-  Use only to re-run Spike C: Spike A's generated output replaces Spike B's hand-written patterns and each catalog edit's terraform plan is snapshot-tested. Triggers on 'spike C', 'join spike', 'catalog drives the buses'.
-title: "Spike C · Join — generated patterns drive the LocalStack buses"
-read_first:
-  - spikes/A-catalog-source-of-truth/findings.md
-  - spikes/B-localstack-buses-end-to-end/findings.md
-  - docs/architecture/generation-and-ci.md
+name: arch-spike-c-join-catalog-to-buses
+description: Use only to re-run Spike C: Spike A's generated output replaces Spike B's hand-written patterns and each catalog edit's terraform plan is snapshot-tested. Triggers on 'spike C', 'join spike', 'catalog drives the buses'.
 ---
 
 # Spike C · Join — generated patterns drive the LocalStack buses
