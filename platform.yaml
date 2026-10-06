@@ -71,7 +71,7 @@ parameters:
       - templates/catalog-repo/catalog/eventcatalog.config.js (its own placeholder, https://github.com/example/catalog/edit/main)
 
   catalog_site_url:
-    about: Where GitHub Pages publishes the catalog (`.github/workflows/pages.yml`); linked from the spike README.
+    about: Where GitHub Pages publishes the catalog and overview.html (`.github/workflows/pages.yml`); linked from the README and the spike README. The README badges name the same GitHub repository.
     placeholder: https://datagriff.github.io/aws.serverless.architecture/
     value: https://datagriff.github.io/aws.serverless.architecture/
     used_in:

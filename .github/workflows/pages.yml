@@ -1,4 +1,5 @@
-# Publishes the Spike A EventCatalog site to GitHub Pages.
+# Publishes the Spike A EventCatalog site (the worked example) to GitHub Pages, with docs/architecture/overview.html at /overview.html.
+# The site also serves llms.txt, llms-full.txt and docs/llm/schemas.txt for agents (AGENTS.md, Querying the catalog).
 # EventCatalog core is MIT; the static build needs no licence key. Node 22 comes from spikes/A-catalog-source-of-truth/.mise.toml.
 name: pages
 on:
@@ -6,6 +7,7 @@ on:
     branches: [main]
     paths:
       - "spikes/A-catalog-source-of-truth/catalog/**"
+      - "docs/architecture/overview.html"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 permissions:
@@ -29,6 +31,8 @@ jobs:
           EVENTCATALOG_BASE: /${{ github.event.repository.name }}
       - name: The build must not rewrite the catalog
         run: git diff --exit-code -- .
+      - name: Publish the one-page overview beside the catalog
+        run: cp ../../../docs/architecture/overview.html dist/overview.html
       - uses: actions/upload-pages-artifact@v3
         with: { path: spikes/A-catalog-source-of-truth/catalog/dist }
   deploy:

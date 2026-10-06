@@ -1,5 +1,7 @@
 # aws.serverless.architecture
 
+[![ci](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/ci.yml) [![pages](https://github.com/dataGriff/aws.serverless.architecture/actions/workflows/pages.yml/badge.svg)](https://datagriff.github.io/aws.serverless.architecture/)
+
 An event and API platform pattern on AWS serverless, written so that an organisation can fork it, replace the parameters, and have agents build it: the decisions with the only triggers that reopen them, the conventions a catalog CI enforces, one ready-to-run prompt per roadmap step and per recurring operation, and the spikes that proved the load-bearing ideas before day one.
 
 ## Who this is for
