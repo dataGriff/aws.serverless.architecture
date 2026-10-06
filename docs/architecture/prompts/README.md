@@ -32,7 +32,7 @@ One self-contained prompt per part of the roadmap, plus the recurring operations
 
 ## Prompt conventions
 
-Every prompt has the same shape: **Before you start** (what to read), **Hard rules** (identical everywhere), **Goal**, **Build / Steps / Scope**, **Done when** (the exit criteria), **Report back**. Test names in a prompt are part of the contract: an agent that renames them has changed the acceptance criteria. When a step's roadmap entry changes, change its prompt in the same PR.
+Every prompt has the same shape: **Before you start** (what to read), **Hard rules** (identical everywhere), **Goal**, **Build / Steps / Scope**, **Done when** (the exit criteria), **Report back**. Test names in a prompt are part of the contract: an agent that renames them has changed the acceptance criteria. When a step's roadmap entry changes, change its prompt in the same PR. `task prompts:check` fails when a prompt names a superseded ADR or uses vocabulary the spikes retired (see `install-commands.py`); the spike prompts that ran under the old ADRs are marked `historical: true` and kept as they ran.
 
 ## Spikes (before day one)
 

@@ -17,7 +17,7 @@ Each step proves one mechanism; nothing is built ahead of a trigger. Every part 
 
 ### Fix the conventions
 
-- Events: `source = {domain}.{service}`; `detail-type = {Name}.v{n}`; envelope `eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`; catalog fields `visibility`, `audience`, `pii`, `deprecated`, `sunset`
+- Events: `source = {domain}.{service}`; `detail-type = {Name}.v{n}`; envelope `eventId`, `occurredAt`, `correlationId`, `causationId`, `aggregateId`, `aggregateVersion`, `replay`; catalog frontmatter `x-visibility`, `x-audience`, `x-source`, `deprecated: {date, message}`; `x-pii` on every JSON Schema property
 - APIs: OpenAPI 3.1; `/v{n}`; additive = minor; RFC 9457 `problem+json`; `Idempotency-Key` on every command; cursor pagination; `X-Correlation-Id`; `Sunset`/`Deprecation` headers; a Spectral ruleset that encodes all of it
 - `schemas/` = value objects only; entities under `schemas/{domain}/`; every field carries `x-pii`; the 4KB pattern limit means the generator splits forward rules when the public list grows
 - Names: `{domain}-bus`, `{domain}-events-bronze|silver`, `{domain}.api.example.com`, `{domain}-reader`

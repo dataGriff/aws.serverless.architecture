@@ -1,4 +1,5 @@
 ---
+historical: true
 title: "Spike A · EventCatalog as the source of truth (no AWS)"
 read_first:
   - docs/architecture/conventions.md
@@ -8,6 +9,8 @@ read_first:
 ---
 
 # Spike A · EventCatalog as the source of truth (no AWS)
+
+> **Historical.** Ran before ADR-021 to ADR-025 were accepted and is kept as it ran; its vocabulary (`visibility`, fan-out patterns, bus channel pages) is superseded by `conventions.md` and by what `spikes/A-catalog-source-of-truth/findings.md` found. Read the findings before re-running it.
 
 ## Spike rules
 

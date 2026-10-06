@@ -4,6 +4,8 @@ description: "Spike A · EventCatalog as the source of truth (no AWS)"
 
 # Spike A · EventCatalog as the source of truth (no AWS)
 
+> **Historical.** Ran before ADR-021 to ADR-025 were accepted and is kept as it ran; its vocabulary (`visibility`, fan-out patterns, bus channel pages) is superseded by `conventions.md` and by what `spikes/A-catalog-source-of-truth/findings.md` found. Read the findings before re-running it.
+
 ## Spike rules
 
 - **Time-box:** two working days. If the done-when list is not green by then, stop and write up what blocked it — that is a valid result.

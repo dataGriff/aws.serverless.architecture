@@ -17,7 +17,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 - Tests before infrastructure: L0 contract (no infra) → L1 domain-local (LocalStack + pinned `platform-local`) → L2 platform. Never depend on another domain's code or a shared environment.
 - Small commits with the ADR or doc section they implement named in the message. If a decision cannot be undone and the docs do not settle it, stop and ask, giving the options and your recommendation.
 
-**Read first:** `docs/architecture/data-layer.md` · `docs/architecture/testing.md` · `docs/architecture/roadmap.md (Day one)` · `docs/architecture/adr/ADR-009-archive.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-011-analytical-layer.md` · `docs/architecture/adr/ADR-015-observability.md`
+**Read first:** `docs/architecture/data-layer.md` · `docs/architecture/testing.md` · `docs/architecture/roadmap.md (Day one)` · `docs/architecture/adr/ADR-024-archive-firehose-subscriber.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-011-analytical-layer.md` · `docs/architecture/adr/ADR-015-observability.md`
 
 ## Goal
 

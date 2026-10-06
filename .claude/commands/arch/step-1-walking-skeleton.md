@@ -33,7 +33,7 @@ Prove every mechanism once, in one account, with real tests, before any generato
 
 ## Tests (names are the contract)
 
-`test_public_event_reaches_central_and_bronze_with_shape_intact` · `test_internal_event_never_leaves_domain_bus` · `test_fan_out_excludes_own_events` · `test_dlq_catches_broken_target` · `test_bad_payload_is_quarantined_with_alarm` · `test_direct_field_in_clear_is_quarantined` · `test_cross_hour_duplicate_yields_one_silver_row` · `test_rerun_window_is_idempotent` · `test_replay_flag_causes_no_side_effect` · `test_api_conforms_to_spec` (Schemathesis) · `test_gateway_rejects_invalid_body` · `test_command_produces_event_with_correlation_id` · `test_direct_field_ciphertext_in_bronze_and_absent_from_silver_columns` · `test_granted_role_decrypts_ungranted_cannot` · `test_silver_passes_odcs_contract`.
+`test_public_event_reaches_central_and_bronze_with_shape_intact` · `test_internal_event_never_leaves_domain_bus` · `test_nothing_is_ever_delivered_back_to_a_domain_bus` · `test_dlq_catches_broken_target` · `test_bad_payload_is_quarantined_with_alarm` · `test_direct_field_in_clear_is_quarantined` · `test_cross_hour_duplicate_yields_one_silver_row` · `test_rerun_window_is_idempotent` · `test_replay_flag_causes_no_side_effect` · `test_api_conforms_to_spec` (Schemathesis) · `test_gateway_rejects_invalid_body` · `test_command_produces_event_with_correlation_id` · `test_direct_field_ciphertext_in_bronze_and_absent_from_silver_columns` · `test_granted_role_decrypts_ungranted_cannot` · `test_silver_passes_odcs_contract`.
 
 ## Done when
 

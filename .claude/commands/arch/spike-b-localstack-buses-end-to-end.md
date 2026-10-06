@@ -4,6 +4,8 @@ description: "Spike B · Domain bus ↔ central bus end to end on LocalStack (no
 
 # Spike B · Domain bus ↔ central bus end to end on LocalStack (no catalog)
 
+> **Historical.** Ran under ADR-001 (fan-out-all) and is kept as it ran: it is the prompt that produced `THIRD_ACCOUNT_HOP_DETECTED` and ADR-021. Its `read_first` names the superseded ADRs on purpose. Read `spikes/B-localstack-buses-end-to-end/findings.md` before re-running it.
+
 ## Spike rules
 
 - **Time-box:** two working days. If the done-when list is not green by then, stop and write up what blocked it — that is a valid result.

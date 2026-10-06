@@ -4,7 +4,7 @@ title: "Step 4 · Real accounts — nonprod, then prod"
 read_first:
   - docs/architecture/roadmap.md (Step 4)
   - docs/architecture/adr/ADR-005-api-hosting.md
-  - docs/architecture/adr/ADR-008-replay.md
+  - docs/architecture/adr/ADR-023-replay-retention.md
   - docs/architecture/adr/ADR-010-bucket-location-protection.md
   - docs/architecture/adr/ADR-014-environments.md
   - docs/architecture/adr/ADR-020-dr.md
@@ -26,7 +26,7 @@ Read, in this order: `docs/architecture/README.md` (index and glossary), `docs/a
 - Tests before infrastructure: L0 contract (no infra) → L1 domain-local (LocalStack + pinned `platform-local`) → L2 platform. Never depend on another domain's code or a shared environment.
 - Small commits with the ADR or doc section they implement named in the message. If a decision cannot be undone and the docs do not settle it, stop and ask, giving the options and your recommendation.
 
-**Read first:** `docs/architecture/roadmap.md (Step 4)` · `docs/architecture/adr/ADR-005-api-hosting.md` · `docs/architecture/adr/ADR-008-replay.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-014-environments.md` · `docs/architecture/adr/ADR-020-dr.md` · `docs/architecture/pii.md`
+**Read first:** `docs/architecture/roadmap.md (Step 4)` · `docs/architecture/adr/ADR-005-api-hosting.md` · `docs/architecture/adr/ADR-023-replay-retention.md` · `docs/architecture/adr/ADR-010-bucket-location-protection.md` · `docs/architecture/adr/ADR-014-environments.md` · `docs/architecture/adr/ADR-020-dr.md` · `docs/architecture/pii.md`
 
 ## Goal
 
