@@ -12,6 +12,8 @@ The history of this repository's decisions and structure. An adopter's fork star
 - The prompts' shared blocks live once under `_partials/` (#12).
 - `decisions.md` rendered from the ADR frontmatter; `task adr:check` lints the ADR set (#13).
 - `adr/TEMPLATE.md` and this changelog; the dated rules of engagement moved here from `decisions.md` (#15).
+- Root CI workflow on pull requests (prompts, ADRs, links, Spike A's pipeline, the templates); `overview.html` published with the catalog site (#14).
+- Agents query the catalog through its MCP server (Scale licence) or the published `llms.txt`; `.mcp.json.example` (#16).
 
 ## 2026-10-05
 
