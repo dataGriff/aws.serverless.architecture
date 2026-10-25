@@ -19,3 +19,4 @@ Routes:
 - Before editing `docs/architecture/prompts/*.md`, read `docs/architecture/prompts/README.md`, then run `task prompts` (the `.claude/commands/arch/` copies are generated).
 - To explain the architecture to someone new, open `docs/architecture/overview.html`.
 - Setup and env vars: `README.md` and `.env.example`.
+- CI is `.github/workflows/ci.yml`: `task prompts:check` and `task a:all`. Spikes B, C and D need LocalStack or real AWS and are not in CI.

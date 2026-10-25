@@ -8,7 +8,7 @@ Four spikes (A catalog, B LocalStack buses, C the join, D Custom Event Bus on re
 docs/architecture/        the proposal: decisions, ADRs, conventions, PII, data layer, contracts, testing, roadmap, prompts
 .claude/commands/arch/    the prompts as Claude Code commands  (/arch:spike-a-catalog-source-of-truth …)
 spikes/A-…                catalog + generator skeleton + checks + tests   (no AWS)
-spikes/B-…                LocalStack: 3 buses, probes, DLQ, harness, 19 tests (reads A's generated output since C)
+spikes/B-…                LocalStack: 3 buses, probes, DLQ, harness, tests (reads A's generated output since C)
 spikes/C-join/            A joined to B: scenario tests and plan snapshots
 spikes/D-…                Custom Event Bus on a real AWS account (eu-west-1)
 ```
