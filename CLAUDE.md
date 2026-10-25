@@ -10,3 +10,12 @@ Four spikes (A, B, C, D), run from `docs/architecture/prompts/spikes/` (also `/a
 All four spikes are done and have a `findings.md`; test names are the contract, so change behaviour rather than renaming tests.
 Vocabulary and the decisions the spikes are testing: `docs/architecture/README.md` and `docs/architecture/decisions.md`.
 Do not add AWS services or widen scope; a spike that ends with "blocked, here is why" is a valid result.
+
+Routes:
+- Before proposing or changing infrastructure, routing, data or API design, read `docs/architecture/decisions.md`; to challenge one decision, read its `docs/architecture/adr/ADR-*.md`.
+- Before touching a spike, read its `findings.md` (`spikes/<X>-*/findings.md`) and `README.md`.
+- Before writing an event, API operation or catalog entry, read `docs/architecture/conventions.md`; for personal data, `docs/architecture/pii.md`.
+- Before changing the generator or CI, read `docs/architecture/generation-and-ci.md`; before writing tests, `docs/architecture/testing.md`.
+- Before editing `docs/architecture/prompts/*.md`, read `docs/architecture/prompts/README.md`, then run `task prompts` (the `.claude/commands/arch/` copies are generated).
+- To explain the architecture to someone new, open `docs/architecture/overview.html`.
+- Setup and env vars: `README.md` and `.env.example`.
