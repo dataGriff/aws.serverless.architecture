@@ -14,7 +14,7 @@ spikes/C-join/            how to join A and B once both are green
 
 ## Quick start (about 30 minutes before the agents take over)
 
-1. Prerequisites: Docker running, `mise` installed. Then `mise install && task doctor`.
+1. Prerequisites: Docker running, `mise` installed. Then `mise install && task doctor`. Env vars (LocalStack token, AWS profile for Spike D) are listed in `.env.example`.
 2. Spike B needs nothing else: `cd spikes/B-localstack-buses-end-to-end && task up && task apply && task test`
    — expect some tests to fail on a fresh LocalStack; the spike's job is to find out which and why.
 3. Spike A needs the catalog created once: `cd spikes/A-catalog-source-of-truth && task catalog:create`
