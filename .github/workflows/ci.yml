@@ -116,3 +116,12 @@ jobs:
           for f in spikes/B-localstack-buses-end-to-end/terraform/envs/local/.terraform.lock.hcl spikes/D-custom-event-bus/terraform/.terraform.lock.hcl; do
             git ls-files --error-unmatch "$f" >/dev/null 2>&1 || { echo "::warning file=$f::not committed yet — run \`terraform providers lock -platform=linux_amd64 -platform=darwin_arm64\` in its directory with registry access and commit it (#21)"; }
           done
+  ci:
+    name: ci
+    if: always()
+    needs: [docs-and-prompts, platform, templates, templates-lifted, terraform]
+    runs-on: ubuntu-latest
+    steps:
+      - name: The one check the default-branch ruleset requires; fails unless every job above succeeded
+        run: |
+          [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false" ]
