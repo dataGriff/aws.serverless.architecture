@@ -21,7 +21,7 @@ revisit_when:
 
 None of ADR-001's `revisit_when` triggers fired. Its **premise** failed: fan-out-all assumed an event could travel `domain-bus → central-bus → domain-bus` through EventBridge rules. EventBridge Classic delivers one bus-to-bus hop only.
 
-Evidence, from a real account (`task sandbox-test` in Spike B): every two-hop test fails, and the fan-out rule's dead-letter queue holds the event with
+Evidence, from a real account (the Spike B sandbox run, env removed in 0914c7e): every two-hop test fails, and the fan-out rule's dead-letter queue holds the event with
 
 ```
 ERROR_CODE     THIRD_ACCOUNT_HOP_DETECTED
