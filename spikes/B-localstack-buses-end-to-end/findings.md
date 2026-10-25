@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Confirmed on real AWS (sandbox account, eu-west-2, 2026-10-04)
 
-`task sandbox-apply && task sandbox-test` applies the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and runs the suite with real credentials. Result of the first run: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only). Five failures are the two-hop tests; the sixth was the one-hop fan-out test's DLQ-depth assertion tripping on residue (note below), fixed and re-run green, so the settled result is **5 failed (all two-hop), 7 passed, 3 skipped**.
+The sandbox tasks (removed with the sandbox env in 0914c7e; Spike D now runs against a real account) applied the same modules and the same `patterns/*.json` to a real account (`terraform/envs/sandbox`) and ran the suite with real credentials. Result of the first run: **6 failed, 6 passed, 3 skipped** (the archiver/DuckDB tests are LocalStack-only). Five failures are the two-hop tests; the sixth was the one-hop fan-out test's DLQ-depth assertion tripping on residue (note below), fixed and re-run green, so the settled result is **5 failed (all two-hop), 7 passed, 3 skipped**.
 
 | Test | LocalStack | Real AWS | What AWS said |
 | --- | --- | --- | --- |
@@ -87,7 +87,7 @@ sequenceDiagram
 | `test_envelope_preserved_across_two_hops` | pass | **FAIL** | same |
 | `test_duplicate_put_is_delivered_twice` | pass | **FAIL** (0 of 2 arrive) | same |
 
-The DLQ record on both fan-out rules (`task sandbox-dlq-peek`):
+The DLQ record on both fan-out rules (sandbox, since removed):
 
 ```
 ERROR_CODE    THIRD_ACCOUNT_HOP_DETECTED
@@ -236,7 +236,7 @@ Everything marked `@pytest.mark.sandbox` (`pytest -m sandbox`):
 
 **Recommendation: proceed to day one with these changes, not as written.**
 
-1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven on AWS) and keep the fan-out *pattern* on central (proven on AWS), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). The drop is now demonstrated (`task sandbox-test`); the sandbox env stays in the repo as the place to prove the re-publisher.
+1. **ADR-001 — replace the second hop.** Keep domain bus → central (rule + role, proven on AWS) and keep the fan-out *pattern* on central (proven on AWS), but make the fan-out target a platform-owned re-publisher that calls `PutEvents` on the domain bus (a tiny Lambda, or a Pipe when LocalStack supports it) instead of the domain bus itself. A re-published event is a new event with a fresh hop budget. Trade-off: one Lambda in the hot path per domain (ms of latency, a new failure mode, the loop guard is now the pattern alone), against the alternative of making every domain relay publish straight onto central cross-account (fewer moving parts, but the domain's own bus no longer sees its own public events and domain-local testing loses the forward rule). The drop was demonstrated in the sandbox run (env since removed, 0914c7e).
 2. **ADR-006 — drop "input transformer on the forward rule" from `revisit_when`.** The only viable path is a distinct public event with `derivedFrom`; say so.
 3. **ADR-008 / ADR-009 / testing.md — mark replay, DLQ delivery, resource policies, IAM roles and every Firehose behaviour beyond "record reaches S3" `sandbox-only`.** platform-local's bronze comes from the Lambda shim sharing the real validation code. platform-local must stub them honestly (an `expect_dlq` that reads LocalStack's `TargetDeliveryFailure` log line is the most it can do) and the nightly sandbox run becomes a release gate for those mechanisms, not a nice-to-have.
 4. **Day one toolchain — use the licensed image with `ENFORCE_IAM=1` for platform-local and CI** (the token is already available on this machine; the Taskfile shows the pattern). It is the only way IAM roles and resource policies fail locally, and it is the only line receiving fixes. Keep `4.14.0` as the documented no-licence fallback and note it cannot enforce IAM. Archives need `ENFORCE_IAM=0` until LocalStack fixes its internal archive rule.
